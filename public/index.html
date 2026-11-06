@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1026">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Meeqat · Prayer Times</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+@font-face{font-family:Outfit;font-weight:300;font-display:swap;src:url(fonts/outfit-latin-300-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:400;font-display:swap;src:url(fonts/outfit-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:500;font-display:swap;src:url(fonts/outfit-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:600;font-display:swap;src:url(fonts/outfit-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:700;font-display:swap;src:url(fonts/outfit-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:Amiri;font-weight:400;font-display:swap;src:url(fonts/amiri-arabic-400-normal.woff2) format('woff2')}
+@font-face{font-family:Amiri;font-weight:700;font-display:swap;src:url(fonts/amiri-arabic-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Noto Sans Malayalam';font-weight:400;font-display:swap;src:url(fonts/noto-sans-malayalam-malayalam-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Noto Sans Malayalam';font-weight:600;font-display:swap;src:url(fonts/noto-sans-malayalam-malayalam-600-normal.woff2) format('woff2')}
+
+:root{
+  --acc:#f3c96b; --accA:#f3c96b2e; --accB:#f3c96b55; --ink:#1b1306;
+  --txt:#fff; --mut:rgba(255,255,255,.68); --dim:rgba(255,255,255,.45);
+  --o1:#3b2a8f; --o2:#123a7a; --o3:#5b2a86;
+  --font:Outfit,'Noto Sans Malayalam','Noto Sans',Amiri,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#050a1c;color:var(--txt);font-family:var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body.nocursor{cursor:none}
+.ar{font-family:Amiri,'Noto Naskh Arabic',serif;direction:rtl;unicode-bidi:isolate}
+.num{direction:ltr;unicode-bidi:isolate;font-variant-numeric:tabular-nums}
+
+/* ---------- living background ---------- */
+#bg{position:fixed;inset:0;overflow:hidden;z-index:0}
+.bgl{position:absolute;inset:0;transition:opacity 8s ease}
+.orb{position:absolute;border-radius:50%;filter:blur(110px);opacity:.5;transition:background-color 8s ease;will-change:transform}
+.o1{width:64vmax;height:64vmax;left:-16vmax;top:-26vmax;background:var(--o1);animation:d1 70s ease-in-out infinite alternate}
+.o2{width:54vmax;height:54vmax;right:-18vmax;top:4vmax;background:var(--o2);animation:d2 85s ease-in-out infinite alternate}
+.o3{width:48vmax;height:48vmax;left:30vmax;bottom:-32vmax;background:var(--o3);animation:d3 100s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(12vmax,8vmax) scale(1.1)}}
+@keyframes d2{to{transform:translate(-10vmax,12vmax) scale(.92)}}
+@keyframes d3{to{transform:translate(-14vmax,-6vmax) scale(1.12)}}
+.pattern{position:absolute;inset:-60px;opacity:.055;background-size:132px 132px}
+.skyline{position:absolute;left:0;bottom:0;width:100%;height:30vh;opacity:.085;fill:#fff}
+.vignette{position:absolute;inset:0;background:radial-gradient(ellipse 120% 90% at 50% 40%,transparent 45%,rgba(0,0,0,.5))}
+#dim{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:90;transition:opacity 4s}
+
+/* ---------- stage (fixed design canvas, scaled to any screen) ---------- */
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;display:flex;flex-direction:column;padding:40px 64px 38px;gap:20px;z-index:1}
+#stage.portrait{width:1080px;height:1920px;padding:56px 52px 48px;gap:24px}
+
+.glass{position:relative;background:linear-gradient(140deg,rgba(255,255,255,.14),rgba(255,255,255,.045) 60%,rgba(255,255,255,.07));border:1.5px solid rgba(255,255,255,.17);box-shadow:0 24px 70px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.22);-webkit-backdrop-filter:blur(28px) saturate(150%);backdrop-filter:blur(28px) saturate(150%);border-radius:32px}
+.lite .glass{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.085)}
+.lite .orb{animation:none;filter:blur(80px)}
+.lite *{transition-duration:0s!important}
+
+/* ---------- top bar ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:80px}
+.brand{display:flex;align-items:center;gap:22px;min-width:0}
+.mark{width:76px;height:76px;flex:none;border-radius:24px;display:grid;place-items:center}
+.mark svg{width:42px;height:42px;fill:var(--acc)}
+.mname{font-size:42px;font-weight:600;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:980px}
+.msub{font-size:23px;color:var(--mut);margin-top:4px;white-space:nowrap}
+.topr{display:flex;align-items:center;gap:16px;flex:none}
+.chips{display:flex;gap:12px}
+.chip{padding:12px 22px;border-radius:999px;font-size:22px;color:var(--mut);white-space:nowrap}
+.chip b{color:var(--txt);font-weight:500;margin-inline-start:6px}
+.status{display:none;padding:12px 22px;border-radius:999px;font-size:21px;background:rgba(255,170,60,.18);border:1px solid rgba(255,170,60,.5);color:#ffd59a;white-space:nowrap}
+.status.show{display:block}
+.status.bad{background:rgba(255,80,80,.18);border-color:rgba(255,80,80,.5);color:#ffb3b3}
+.qr{display:none;align-items:center;gap:14px;padding:10px 18px 10px 10px;border-radius:24px}
+.qr.show{display:flex}
+.qrimg{width:72px;height:72px;border-radius:14px;overflow:hidden;background:#fff}
+.qrimg svg{width:100%;height:100%;display:block}
+.qr span{font-size:18px;color:var(--mut);max-width:130px;line-height:1.25}
+
+/* ---------- hero ---------- */
+.hero{flex:1;display:flex;align-items:center;gap:56px;min-height:0}
+.clockbox{flex:1;min-width:0}
+.clock{display:flex;align-items:flex-start;font-weight:300;line-height:.84;letter-spacing:-.045em}
+#hm{font-size:272px;text-shadow:0 12px 50px rgba(0,0,0,.25)}
+.sec{display:flex;flex-direction:column;gap:14px;margin-inline-start:20px;padding-top:28px;letter-spacing:0}
+#ss{font-size:88px;font-weight:400;color:var(--acc);line-height:1}
+#ampm{font-size:44px;font-weight:500;color:var(--mut)}
+.date{font-size:44px;font-weight:400;margin-top:34px}
+.hdate{font-size:38px;font-weight:500;color:var(--acc);margin-top:10px}
+.nextcard{width:800px;flex:none;padding:30px 46px 32px;overflow:hidden;transition:box-shadow 1s,border-color 1s}
+.nextcard::before{content:"";position:absolute;width:520px;height:520px;right:-180px;top:-260px;border-radius:50%;background:radial-gradient(circle,var(--accB),transparent 70%);pointer-events:none}
+.nlabel{font-size:23px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
+.nname{display:flex;align-items:baseline;gap:22px;margin-top:8px;flex-wrap:wrap}
+#nname{font-size:80px;font-weight:600;line-height:1}
+#nar{font-size:54px;color:var(--acc);line-height:1}
+.nmeta{font-size:28px;color:var(--mut);margin-top:12px}
+.nmeta b{color:var(--txt);font-weight:500}
+.nmeta .sep{opacity:.4;margin:0 12px}
+.cdlabel{font-size:21px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:18px}
+.cd{font-size:104px;font-weight:500;line-height:1;color:var(--acc);letter-spacing:-.02em;margin-top:8px}
+.bar{height:9px;border-radius:9px;background:rgba(255,255,255,.12);margin-top:20px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,var(--acc),#fff);transition:width 1s linear}
+.nextcard.urgent{border-color:var(--acc);animation:glow 2.4s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 2px var(--acc),0 0 80px var(--accB),0 24px 70px rgba(0,0,0,.3)}}
+
+/* ---------- strip: ayah / ramadan ---------- */
+.strip{min-height:108px;display:flex;align-items:center;justify-content:center;padding:14px 56px;text-align:center;transition:opacity 1s}
+.strip.hide{display:none}
+.strip.fade{opacity:0}
+.ayah{display:flex;flex-direction:column;align-items:center;gap:6px}
+.ayah .ar{font-size:42px;line-height:1.3}
+.ayah .tr{font-size:24px;color:var(--mut)}
+.ayah .tr i{font-style:normal;color:var(--acc);margin-inline-start:12px;font-size:21px}
+.ram{display:flex;width:100%;align-items:center}
+.rseg{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;border-inline-start:1px solid rgba(255,255,255,.14)}
+.rseg:first-child{border:0}
+.rseg small{font-size:21px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.rseg b{font-size:42px;font-weight:600}
+.rseg b.acc{color:var(--acc)}
+.rseg .ar{font-size:40px;color:var(--acc)}
+
+/* ---------- prayer cards (landscape) ---------- */
+.table{display:grid;grid-template-columns:repeat(var(--n,6),1fr);gap:22px;height:236px;flex:none}
+.pcard{display:flex;flex-direction:column;justify-content:space-between;padding:24px 28px 22px;border-radius:30px;transition:transform .8s,opacity .8s,background .8s}
+.pcard .ar{font-size:33px;color:var(--mut);line-height:1;text-align:start;min-height:33px}
+.pname{font-size:36px;font-weight:600;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptime{font-size:78px;font-weight:500;line-height:1;letter-spacing:-.02em;white-space:nowrap}
+.ptime small{font-size:26px;font-weight:500;color:var(--mut);margin-inline-start:8px;letter-spacing:0}
+.pfoot{display:flex;align-items:center;gap:8px;font-size:23px;color:var(--mut);white-space:nowrap}
+.pfoot b{color:var(--acc);font-weight:600}
+.pfoot svg{width:22px;height:22px;fill:currentColor;opacity:.8}
+.pcard.past{opacity:.48}
+.pcard.sun .ptime{color:var(--mut)}
+.pcard.next{border-color:var(--acc);background:linear-gradient(160deg,var(--accB),rgba(255,255,255,.06) 70%);box-shadow:0 0 0 1px var(--acc),0 26px 80px var(--accA);transform:translateY(-10px)}
+.pill{position:absolute;top:18px;inset-inline-start:24px;padding:6px 14px;border-radius:999px;background:var(--acc);color:var(--ink);font-size:17px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.pill.soft{background:rgba(255,255,255,.18);color:var(--txt)}
+
+/* ---------- portrait list ---------- */
+.portrait .hero{flex:none;flex-direction:column;align-items:stretch;gap:30px}
+.portrait .clockbox{text-align:center}
+.portrait .clock{justify-content:center}
+.portrait #hm{font-size:210px}
+.portrait .nextcard{width:auto;display:grid;grid-template-columns:1fr auto;grid-template-areas:"l c" "n c" "m c" "b b";column-gap:30px;align-items:end;padding:32px 44px 34px}
+.portrait .nlabel{grid-area:l}.portrait .nname{grid-area:n}.portrait .nmeta{grid-area:m}.portrait .bar{grid-area:b}
+.portrait .cdwrap{grid-area:c;text-align:end;align-self:center}
+.portrait #nname{font-size:72px}
+.portrait .cd{font-size:96px}
+.portrait .cdlabel{margin-top:0}
+.portrait .date{font-size:40px;margin-top:26px}
+.portrait .hdate{font-size:36px}
+.portrait .strip{min-height:132px;padding:18px 36px}
+.portrait .table{display:flex;flex-direction:column;height:auto;flex:1;gap:16px;min-height:0}
+.lhead{display:grid;grid-template-columns:var(--cols);padding:0 44px;font-size:22px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.lrow{position:relative;display:grid;grid-template-columns:var(--cols);align-items:center;padding:0 44px;border-radius:28px;flex:1;min-height:108px;transition:all .8s}
+.lname b{display:block;font-size:42px;font-weight:600;line-height:1.15}
+.lname .ar{display:block;font-size:28px;line-height:1.25;color:var(--mut)}
+.lname{display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
+.lt{font-size:66px;font-weight:500;letter-spacing:-.02em}
+.lt small{font-size:24px;color:var(--mut);margin-inline-start:6px}
+.lt.iq{color:var(--acc)}
+.lrow.past{opacity:.48}
+.lrow.next{border-color:var(--acc);background:linear-gradient(160deg,var(--accB),rgba(255,255,255,.06) 70%);box-shadow:0 0 0 1px var(--acc),0 20px 60px var(--accA)}
+.lrow .pill{top:50%;transform:translateY(-50%);inset-inline-start:auto;inset-inline-end:24px}
+
+/* ---------- ticker ---------- */
+.ticker{height:64px;flex:none;display:flex;align-items:center;gap:20px;padding:0 10px;border-radius:999px;overflow:hidden}
+.ticker.hide{display:none}
+.tlabel{flex:none;background:var(--acc);color:var(--ink);font-weight:700;font-size:21px;letter-spacing:.1em;text-transform:uppercase;padding:9px 24px;border-radius:999px}
+.tview{flex:1;position:relative;height:100%;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent)}
+.ttrack{position:absolute;left:0;top:0;line-height:64px;white-space:nowrap;font-size:30px;will-change:transform;animation:tick var(--dur,30s) linear infinite}
+.ttrack .dot{color:var(--acc);margin:0 34px}
+@keyframes tick{from{transform:translateX(var(--from,100%))}to{transform:translateX(var(--to,-100%))}}
+
+/* ---------- full-screen overlays ---------- */
+.overlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:4vmin}
+.overlay.show{display:flex;animation:fin .9s ease}
+@keyframes fin{from{opacity:0}}
+.ov-adhan{background:radial-gradient(circle at 50% 46%,var(--accB),rgba(4,7,18,.94) 58%),#040712}
+.ov-iq{background:radial-gradient(circle at 50% 40%,#132042,#02040c 70%)}
+.ov-salah,.ov-blank{background:#000}
+.ov-khutbah{background:#010207}
+.ov-urgent{background:rgba(3,6,16,.82);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+.ov-identify{background:rgba(3,6,16,.9)}
+.ov-k{font-size:3.6vmin;letter-spacing:.24em;text-transform:uppercase;color:var(--mut)}
+.ov-ar{font-size:11vmin;color:var(--acc);line-height:1.3}
+.ov-big{font-size:15vmin;font-weight:600;line-height:1}
+.ov-time{font-size:7vmin;font-weight:400;margin-top:2vmin}
+.ov-sub{font-size:3.6vmin;color:var(--mut);margin-top:3vmin}
+.ov-sub b{color:var(--acc);font-weight:600}
+.rings{position:absolute;left:50%;top:46%;width:0;height:0}
+.rings i{position:absolute;left:-30vmin;top:-30vmin;width:60vmin;height:60vmin;border-radius:50%;border:1.5px solid var(--acc);opacity:0;animation:ring 6s ease-out infinite}
+.rings i:nth-child(2){animation-delay:2s}.rings i:nth-child(3){animation-delay:4s}
+@keyframes ring{0%{transform:scale(.5);opacity:.35}100%{transform:scale(1.9);opacity:0}}
+.ov-cd{font-size:32vmin;font-weight:500;line-height:1;color:var(--acc);letter-spacing:-.03em;margin:1vmin 0 3vmin}
+.ov-row{display:flex;align-items:center;justify-content:center;gap:2vmin;font-size:4.4vmin;margin-top:1.4vmin}
+.ov-row svg{width:5.5vmin;height:5.5vmin;fill:none;stroke:var(--acc);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ov-row .ar{font-size:4.6vmin;color:var(--mut)}
+.calm{display:flex;flex-direction:column;align-items:center;opacity:.42;animation:wander 120s ease-in-out infinite alternate}
+@keyframes wander{0%{transform:translate(-3vmin,-2vmin)}50%{transform:translate(3vmin,2vmin)}100%{transform:translate(-2vmin,3vmin)}}
+.calm svg{width:12vmin;height:12vmin;fill:none;stroke:#fff;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;margin-bottom:3vmin}
+.calm .s1{font-size:7vmin;font-weight:500}
+.calm .s2{font-size:6vmin;color:var(--acc);margin-top:1vmin}
+.calm .s3{font-size:3.6vmin;color:var(--mut);margin-top:2vmin}
+.ov-clock{position:absolute;bottom:5vmin;font-size:5vmin;font-weight:300;color:rgba(255,255,255,.28)}
+.ov-card{max-width:80vw;padding:6vmin 8vmin;border-color:var(--acc)}
+.ov-tag{display:inline-block;background:var(--acc);color:var(--ink);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:2.6vmin;padding:1vmin 3vmin;border-radius:999px;margin-bottom:4vmin}
+.ov-msg{font-size:6.4vmin;font-weight:500;line-height:1.3;white-space:pre-wrap}
+.nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
+.soundchip{position:fixed;z-index:80;right:2.4vmin;bottom:2.4vmin;display:none;padding:1.4vmin 2.6vmin;border-radius:999px;font-size:2vmin;background:rgba(0,0,0,.6);border:1px solid var(--acc);color:#fff}
+.soundchip.show{display:block}
+[dir=rtl] .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
+.soundchip{right:auto;left:2.4vmin}
+</style>
+</head>
+<body class="nocursor">
+<div id="bg">
+  <div class="bgl" id="bgA"></div><div class="bgl" id="bgB" style="opacity:0"></div>
+  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
+  <div class="pattern" id="pattern"></div>
+  <svg class="skyline" viewBox="0 0 1920 360" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <rect x="0" y="330" width="1920" height="30"/>
+    <rect x="0" y="292" width="210" height="40"/><rect x="230" y="270" width="120" height="62"/><rect x="1560" y="276" width="140" height="56"/><rect x="1720" y="296" width="200" height="36"/>
+    <rect x="380" y="150" width="20" height="182"/><path d="M372 150 L390 108 L408 150Z"/><rect x="370" y="196" width="40" height="7"/>
+    <rect x="1520" y="150" width="20" height="182"/><path d="M1512 150 L1530 108 L1548 150Z"/><rect x="1510" y="196" width="40" height="7"/>
+    <rect x="560" y="96" width="28" height="236"/><path d="M550 96 L574 34 L598 96Z"/><rect x="548" y="166" width="52" height="9"/><rect x="548" y="236" width="52" height="9"/>
+    <rect x="1332" y="96" width="28" height="236"/><path d="M1322 96 L1346 34 L1370 96Z"/><rect x="1320" y="166" width="52" height="9"/><rect x="1320" y="236" width="52" height="9"/>
+    <rect x="610" y="262" width="700" height="70"/>
+    <path d="M640 266 C640 214 676 196 700 176 C724 196 760 214 760 266Z"/>
+    <path d="M1160 266 C1160 214 1196 196 1220 176 C1244 196 1280 214 1280 266Z"/>
+    <path d="M760 264 C760 168 870 128 960 70 C1050 128 1160 168 1160 264Z"/>
+    <rect x="956" y="30" width="8" height="44"/><path d="M960 6 a14 14 0 1 0 12 22 a11 11 0 1 1 -12 -22Z"/>
+  </svg>
+  <div class="vignette"></div>
+</div>
+
+<div id="stage">
+  <header class="top">
+    <div class="brand">
+      <div class="mark glass"><svg viewBox="0 0 24 24"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></div>
+      <div style="min-width:0"><div class="mname" id="mname"></div><div class="msub" id="msub"></div></div>
+    </div>
+    <div class="topr">
+      <div class="chips" id="chips"></div>
+      <div class="status" id="status"></div>
+      <div class="qr glass" id="qr"><div class="qrimg" id="qrimg"></div><span id="qrcap"></span></div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="clockbox">
+      <div class="clock num"><span id="hm">--:--</span><span class="sec"><span id="ss"></span><span id="ampm"></span></span></div>
+      <div class="date" id="gdate"></div>
+      <div class="hdate" id="hdate"></div>
+    </div>
+    <div class="nextcard glass" id="nextcard">
+      <div class="nlabel" id="nlabel"></div>
+      <div class="nname"><span id="nname"></span><span class="ar" id="nar"></span></div>
+      <div class="nmeta" id="nmeta"></div>
+      <div class="cdwrap"><div class="cdlabel" id="cdlabel"></div>
+      <div class="cd num" id="cd"></div></div>
+      <div class="bar"><i id="bar"></i></div>
+    </div>
+  </section>
+
+  <section class="strip glass hide" id="strip"></section>
+  <section class="table" id="table"></section>
+  <footer class="ticker glass hide" id="ticker"><span class="tlabel" id="tlabel"></span><div class="tview" id="tview"><div class="ttrack" id="ttrack"></div></div></footer>
+</div>
+
+<div id="overlay" class="overlay"></div>
+<div id="dim"></div>
+<div id="soundchip" class="soundchip"></div>
+<audio id="aud" preload="auto"></audio>
+
+<script src="vendor/adhan.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = Miqat, $ = (i) => document.getElementById(i);
+  const ID = M.screenId();
+  const store = M.createDisplayStore(ID);
+  const stage = $('stage');
+
+  let S = M.withDefaults(null), meta = {}, T = M.t('en');
+  let days = null, dayKey = '', lastTick = Date.now(), lastSec = -1, lastMin = -1;
+  let forced = null, ovKey = '', tableSig = '', stripSig = '', tickerSig = '', chipSig = '', qrDone = '', palSig = '';
+  let slideIdx = 0, slideAt = 0, burn = [0, 0], burnAt = 0, bgFlip = false, actx = null, portrait = false;
+
+  const ICON = {
+    bell: '<svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3a1.5 1.5 0 0 0-3 0v1.16A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z"/></svg>',
+    sun: '<svg viewBox="0 0 24 24"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm0-5 1.5 3h-3Zm0 20-1.5-3h3ZM2 12l3-1.5v3Zm20 0-3 1.5v-3Z"/></svg>',
+    phoneOff: '<svg viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/><path d="M3 3l18 18"/></svg>',
+    rows: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="7" cy="7" r=".6"/><circle cx="7" cy="12" r=".6"/><circle cx="7" cy="17" r=".6"/></svg>',
+    mic: '<svg viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5M8.5 21.5h7"/></svg>'
+  };
+
+  /* ---------------- settings → static UI ---------------- */
+  store.on('change', (s) => {
+    S = s; meta = s._meta || {}; T = M.t(S.general.lang);
+    dayKey = ''; tableSig = stripSig = tickerSig = chipSig = ovKey = palSig = null; qrDone = '';
+    applyStatic(); tick(true);
+  });
+  store.on('status', renderStatus);
+  store.on('command', command);
+
+  function applyStatic() {
+    const lang = S.general.lang;
+    document.documentElement.lang = lang;
+    document.documentElement.dir = T.dir;
+    const acc = M.ACCENTS[S.display.accent] || (/^#[0-9a-f]{6}$/i.test(S.display.accent) ? S.display.accent : M.ACCENTS.gold);
+    const r = document.documentElement.style;
+    r.setProperty('--acc', acc); r.setProperty('--accA', acc + '2e'); r.setProperty('--accB', acc + '55');
+    document.body.classList.toggle('lite', !!S.features.lite);
+    document.body.classList.toggle('nolsp', !['en', 'id', 'tr', 'fr'].includes(lang));
+    $('mname').textContent = S.general.masjidName || meta.name || 'Meeqat';
+    $('msub').textContent = [S.general.subtitle, S.location.city].filter(Boolean).join('  ·  ');
+    $('tlabel').textContent = T.notice;
+    $('qrcap').textContent = T.scan;
+    layout();
+    renderQr();
+  }
+
+  function layout() {
+    const o = S.display.orientation;
+    portrait = o === 'portrait' || (o !== 'landscape' && innerHeight > innerWidth);
+    stage.classList.toggle('portrait', portrait);
+    const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
+    const k = Math.min(innerWidth / W, innerHeight / H);
+    stage.style.transform = `translate(calc(-50% + ${burn[0]}px), calc(-50% + ${burn[1]}px)) scale(${k})`;
+    tableSig = ''; tickerSig = '';
+  }
+  addEventListener('resize', () => { layout(); tick(true); });
+
+  /* ---------------- helpers ---------------- */
+  const nameOf = (e) => (e.jumuah ? T.p.jumuah : T.p[e.key]);
+  const arOf = (e) => (e.jumuah ? M.AR_PRAYER.jumuah : M.AR_PRAYER[e.key]);
+  const showAr = () => S.general.showArabic && S.general.lang !== 'ar';
+  function timeHtml(d) { const f = M.fmtTime(d, S); return `<span class="num">${f.hm}</span>${f.ampm ? `<small>${f.ampm}</small>` : ''}`; }
+  const hm = (d) => `<span class="num">${M.fmtHM(d, S)}</span>`;
+  const sameEv = (a, b) => a && b && a.key === b.key && a.start.getTime() === b.start.getTime();
+
+  function computeDays(p) {
+    const y = M.addDays(p, -1), t = M.addDays(p, 1);
+    return { yesterday: M.computeDay(S, y), today: M.computeDay(S, p), tomorrow: M.computeDay(S, t) };
+  }
+  function eventsAll() {
+    const keep = (e) => !e.sun || S.features.shuruq;
+    return [...days.yesterday.events.filter((e) => !e.sun), ...days.today.events.filter(keep), ...days.tomorrow.events.filter(keep)];
+  }
+  function model(now) {
+    const evs = eventsAll();
+    let next = null, prev = null;
+    for (const e of evs) { if (e.start > now) { next = e; break; } prev = e; }
+    const cur = prev && !prev.sun ? prev : null;
+    const iqPending = !!(cur && cur.iqamah && now < cur.iqamah);
+    const isha = days.today.events.find((e) => e.key === 'isha');
+    const tableDay = S.features.tomorrowAfterIsha && isha && now >= isha.end ? days.tomorrow : days.today;
+    return { next, prev, cur, iqPending, tableDay };
+  }
+
+  /* ---------------- main loop ---------------- */
+  function tick(force) {
+    const now = M.now(S);
+    const sec = Math.floor(now.getTime() / 1000);
+    if (!force && sec === lastSec) return;
+    lastSec = sec;
+    const tz = S.general.timezone;
+    const p = M.zoned(now, tz);
+    const key = M.dayKey(p);
+    if (key !== dayKey || !days) { days = computeDays(p); dayKey = key; tableSig = stripSig = ''; }
+
+    // clock
+    const f = M.fmtTime(now, S);
+    $('hm').textContent = f.hm;
+    $('ss').textContent = S.general.showSeconds ? M.digits(M.pad(p.s), S) : '';
+    $('ampm').textContent = f.ampm;
+    if (p.mi !== lastMin || force) { lastMin = p.mi; renderDates(now, p); }
+
+    const m = model(now);
+    renderNext(now, m);
+    renderTable(now, m);
+    renderStrip(now, p);
+    renderTicker(p);
+    renderOverlay(now);
+    renderChips();
+    triggers(now);
+    theme(now);
+    nightDim(p);
+    burnIn(now);
+    if (p.h === 3 && p.mi === 17 && p.s === 0 && store.status === 'online') location.reload();
+    lastTick = now.getTime();
+  }
+  setInterval(() => tick(false), 250);
+
+  function hijriNow(now, p) {
+    let base = { y: p.y, m: p.m, d: p.d };
+    if (S.calc.hijriAtMaghrib && days && now >= days.today.times.maghrib) base = M.addDays(base, 1);
+    return M.hijri(base, +S.calc.hijriOffset || 0);
+  }
+  function renderDates(now, p) {
+    const loc = T.locale + (S.general.arabicDigits ? '-u-nu-arab' : '-u-nu-latn');
+    let g;
+    try { g = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: S.general.timezone || undefined }).format(now); }
+    catch (e) { g = now.toDateString(); }
+    $('gdate').textContent = g;
+    $('hdate').textContent = M.hijriText(hijriNow(now, p), S);
+  }
+
+  /* ---------------- next-prayer card ---------------- */
+  function renderNext(now, m) {
+    const card = $('nextcard');
+    let label, e, meta2, cdl, target, from;
+    if (m.iqPending) {
+      e = m.cur; label = T.iqamahIn; cdl = T.iqamah; target = e.iqamah; from = e.start;
+      meta2 = e.jumuah ? `${T.khutbah} <b>${hm(e.start)}</b><span class="sep">|</span>${T.iqamah} <b>${hm(e.iqamah)}</b>`
+                       : `${T.adhan} <b>${hm(e.start)}</b><span class="sep">|</span>${T.iqamah} <b>${hm(e.iqamah)}</b>`;
+    } else {
+      e = m.next; if (!e) return;
+      label = T.next; cdl = T.remaining; target = e.start; from = m.prev ? m.prev.start : new Date(now - 3600e3);
+      const tomorrow = M.zoned(e.start, S.general.timezone).d !== M.zoned(now, S.general.timezone).d;
+      if (e.sun) meta2 = `${T.sunrise} <b>${hm(e.start)}</b>`;
+      else if (e.jumuah) meta2 = `${T.khutbah} <b>${hm(e.start)}</b><span class="sep">|</span>${T.iqamah} <b>${hm(e.iqamah)}</b>`;
+      else meta2 = `${T.adhan} <b>${hm(e.start)}</b>` + (e.iqamah ? `<span class="sep">|</span>${T.iqamah} <b>${hm(e.iqamah)}</b>` : '');
+      if (tomorrow) meta2 = `${T.tomorrow}<span class="sep">·</span>` + meta2;
+    }
+    card.classList.toggle('urgent', m.iqPending);
+    $('nlabel').textContent = label;
+    $('nname').textContent = nameOf(e);
+    $('nar').textContent = showAr() ? arOf(e) : '';
+    if ($('nmeta').dataset.v !== meta2) { $('nmeta').innerHTML = meta2; $('nmeta').dataset.v = meta2; }
+    $('cdlabel').textContent = cdl;
+    $('cd').textContent = M.fmtDuration(target - now + 999, S);
+    const span = target - from, pct = span > 0 ? Math.min(100, Math.max(0, ((now - from) / span) * 100)) : 0;
+    $('bar').style.width = pct.toFixed(2) + '%';
+  }
+
+  /* ---------------- prayer table ---------------- */
+  function renderTable(now, m) {
+    const day = m.tableDay, isTomorrow = day === days.tomorrow;
+    const evs = day.events.filter((e) => !e.sun || S.features.shuruq);
+    const rows = evs.map((e) => {
+      const next = sameEv(e, m.next) && !m.iqPending;
+      const cur = sameEv(e, m.cur);
+      const past = !isTomorrow && !cur && !next && (e.sun ? e.start <= now : (e.end || e.start) <= now) && e.start <= now;
+      return { e, next, cur, past };
+    });
+    const sig = [portrait, S.general.lang, isTomorrow, S.features.iqamah, S.general.clock24, S.general.arabicDigits, showAr()].join() +
+      rows.map((r) => [r.e.key, +r.e.start, r.e.iqamah ? +r.e.iqamah : 0, r.next, r.cur, r.past].join(':')).join('|');
+    if (sig === tableSig) return;
+    tableSig = sig;
+    const el = $('table');
+    el.style.setProperty('--n', rows.length);
+    const pill = (r) => (r.next && isTomorrow ? `<span class="pill">${T.tomorrow}</span>` : r.cur ? `<span class="pill${m.iqPending ? '' : ' soft'}">${T.now}</span>` : '');
+    if (!portrait) {
+      el.innerHTML = rows.map((r) => {
+        const e = r.e;
+        const foot = e.sun ? `${ICON.sun}<span>${T.sunrise}</span>`
+          : e.iqamah ? `<span>${T.iqamah}</span> <b>${hm(e.iqamah)}</b>`
+          : `${ICON.bell}<span>${T.adhan}</span>`;
+        return `<div class="pcard glass${r.next ? ' next' : ''}${r.past ? ' past' : ''}${e.sun ? ' sun' : ''}">
+          ${pill(r)}
+          <div><div class="ar">${showAr() ? arOf(e) : '&nbsp;'}</div><div class="pname">${M.esc(nameOf(e))}</div></div>
+          <div class="ptime">${timeHtml(e.start)}</div>
+          <div class="pfoot">${foot}</div></div>`;
+      }).join('');
+    } else {
+      const iq = S.features.iqamah;
+      el.style.setProperty('--cols', iq ? '1.25fr 1fr 1fr' : '1.4fr 1fr');
+      el.innerHTML = `<div class="lhead"><span></span><span>${T.adhan}</span>${iq ? `<span>${T.iqamah}</span>` : ''}</div>` +
+        rows.map((r) => {
+          const e = r.e;
+          return `<div class="lrow glass${r.next ? ' next' : ''}${r.past ? ' past' : ''}">
+            <div class="lname"><b>${M.esc(nameOf(e))}</b>${showAr() ? `<span class="ar">${arOf(e)}</span>` : ''}${pill(r)}</div>
+            <div class="lt">${timeHtml(e.start)}</div>
+            ${iq ? `<div class="lt iq">${e.iqamah ? timeHtml(e.iqamah) : e.sun ? '<small>' + T.sunrise + '</small>' : '—'}</div>` : ''}</div>`;
+        }).join('');
+    }
+  }
+
+  /* ---------------- ayah / ramadan strip ---------------- */
+  function ramadanActive(p) {
+    const mode = S.features.ramadan;
+    if (mode === 'on' || mode === true) return true;
+    if (mode === 'auto') return hijriNow(M.now(S), p).m === 9;
+    return false;
+  }
+  function renderStrip(now, p) {
+    const el = $('strip');
+    const slides = [];
+    if (ramadanActive(p)) slides.push({ type: 'ram' });
+    if (S.features.ayah) (S.ayahs || []).filter((a) => a.on !== false && (a.ar || a.tr)).forEach((a) => slides.push({ type: 'ayah', a }));
+    if (!slides.length) { el.classList.add('hide'); stripSig = ''; return; }
+    el.classList.remove('hide');
+    const dur = Math.max(10, +S.display.ayahSeconds || 45) * 1000;
+    if (!slideAt) slideAt = now.getTime();
+    if (now - slideAt >= dur && slides.length > 1) {
+      slideAt = now.getTime(); slideIdx++;
+      el.classList.add('fade'); setTimeout(() => { el.classList.remove('fade'); stripSig = ''; }, 900);
+      return;
+    }
+    const s = slides[slideIdx % slides.length];
+    if (s.type === 'ayah') {
+      const sig = 'a' + slideIdx % slides.length + S.general.lang;
+      if (sig === stripSig) return; stripSig = sig;
+      el.innerHTML = `<div class="ayah"><div class="ar">${M.esc(s.a.ar)}</div>${s.a.tr || s.a.ref ? `<div class="tr">${M.esc(s.a.tr)}${s.a.ref ? `<i>${M.esc(s.a.ref)}</i>` : ''}</div>` : ''}</div>`;
+    } else {
+      const td = days.today, tm = days.tomorrow;
+      const suhoor = now < td.times.fajr ? td.times.fajr : tm.times.fajr;
+      const iftar = now < td.times.maghrib ? td.times.maghrib : tm.times.maghrib;
+      const h = hijriNow(now, p);
+      const imsak = +S.ramadan.imsakMinutes > 0 ? new Date(suhoor - S.ramadan.imsakMinutes * 60000) : null;
+      const iftarCd = now < td.times.maghrib && now > td.times.fajr ? `<b class="acc num">${M.fmtDuration(td.times.maghrib - now, S)}</b>` : `<b>${hm(iftar)}</b>`;
+      el.innerHTML = `<div class="ram">
+        <div class="rseg"><span class="ar">رمضان كريم</span><small>${T.day} ${M.digits(h.m === 9 ? h.d : '—', S)}</small></div>
+        <div class="rseg"><small>${T.suhoorEnds}</small><b>${hm(suhoor)}</b>${imsak ? `<small>${T.imsak} ${M.fmtHM(imsak, S)}</small>` : ''}</div>
+        <div class="rseg"><small>${T.iftar}${now < td.times.maghrib && now > td.times.fajr ? ' · ' + hm(iftar) : ''}</small>${iftarCd}</div>
+        <div class="rseg"><small>${T.taraweeh}</small><b class="num">${M.digits(S.ramadan.taraweeh || '—', S)}</b></div></div>`;
+      stripSig = 'ram';
+    }
+  }
+
+  /* ---------------- announcements ticker ---------------- */
+  function renderTicker(p) {
+    const el = $('ticker');
+    const today = M.dayKey(p);
+    const items = S.features.announcements ? (S.announcements || []).filter((a) => a.on !== false && a.text && (!a.from || a.from <= today) && (!a.to || a.to >= today)) : [];
+    if (!items.length) { el.classList.add('hide'); tickerSig = ''; return; }
+    el.classList.remove('hide');
+    const sig = items.map((a) => a.text).join('\u0001') + '|' + S.display.tickerSpeed + portrait;
+    if (sig === tickerSig) return;
+    tickerSig = sig;
+    const tr = $('ttrack');
+    tr.innerHTML = items.map((a) => `<span>${M.esc(a.text)}</span>`).join('<span class="dot">✦</span>');
+    requestAnimationFrame(() => {
+      const vw = $('tview').offsetWidth, tw = tr.offsetWidth;
+      const speed = Math.max(20, +S.display.tickerSpeed || 90);
+      tr.style.setProperty('--from', vw + 'px');
+      tr.style.setProperty('--to', -tw + 'px');
+      tr.style.setProperty('--dur', ((vw + tw) / speed).toFixed(1) + 's');
+      tr.style.animation = 'none'; void tr.offsetWidth; tr.style.animation = '';
+    });
+  }
+
+  /* ---------------- top chips / status / QR ---------------- */
+  function renderChips() {
+    const el = $('chips');
+    let html = '';
+    if (S.features.sunnahTimes && days.today.sunnah) {
+      html = `<div class="chip glass">${T.midnight}<b class="num">${M.fmtHM(days.today.sunnah.midnight, S)}</b></div><div class="chip glass">${T.lastThird}<b class="num">${M.fmtHM(days.today.sunnah.lastThird, S)}</b></div>`;
+    }
+    if (html !== chipSig) { el.innerHTML = html; chipSig = html; }
+  }
+  function renderStatus(st) {
+    const el = $('status');
+    el.classList.remove('show', 'bad');
+    if (st === 'offline') { el.textContent = T.offline; el.classList.add('show'); }
+    else if (st === 'notfound') { el.textContent = `Screen "${ID}" not found`; el.classList.add('show', 'bad'); }
+    renderQr();
+  }
+  async function renderQr() {
+    const box = $('qr');
+    const want = S.features.qr && M.serverAvailable() && store.status === 'online';
+    box.classList.toggle('show', !!want);
+    if (!want || qrDone === ID) return;
+    qrDone = ID;
+    $('qrimg').innerHTML = M.qrSvg(await M.adminUrl(ID));
+  }
+
+  /* ---------------- overlays ---------------- */
+  function overlayState(now) {
+    if (S.live.blank) return { t: 'blank' };
+    if (forced && now < forced.until) return forced;
+    if (forced && now >= forced.until) forced = null;
+    if (S.live.urgent && (!S.live.urgentUntil || now < S.live.urgentUntil)) return { t: 'urgent' };
+    const F = S.features, rank = { salah: 4, khutbah: 3, iq: 2, adhan: 1 };
+    let best = null;
+    const consider = (t, e) => { if (!best || rank[t] > rank[best.t]) best = { t, e }; };
+    const evs = [...days.yesterday.events, ...days.today.events].filter((e) => !e.sun);
+    const cds = Math.max(10, +S.salah.countdownSeconds || 60) * 1000;
+    for (const e of evs) {
+      if (F.salahScreen && e.iqamah && now >= e.iqamah && now < e.end) consider('salah', e);
+      if (F.salahScreen && e.jumuah && e.iqamah && now >= e.start && now < e.iqamah) consider('khutbah', e);
+      if (F.iqamahCountdown && e.iqamah && !e.jumuah && now >= e.iqamah - cds && now < e.iqamah) consider('iq', e);
+      if (F.adhanOverlay && !e.jumuah && S.adhan.prayers[e.key] !== false && now >= e.start && now < e.start.getTime() + (+S.adhan.overlayMinutes || 3) * 60000) consider('adhan', e);
+    }
+    return best;
+  }
+  function renderOverlay(now) {
+    const st = overlayState(now), el = $('overlay');
+    const key = st ? st.t + (st.e ? st.e.key + +st.e.start : '') + S.general.lang + (st.t === 'urgent' ? S.live.urgent : '') : '';
+    if (key !== ovKey) {
+      ovKey = key;
+      el.className = 'overlay';
+      if (!st) { el.innerHTML = ''; }
+      else {
+        el.classList.add('show', 'ov-' + st.t);
+        el.innerHTML = overlayHtml(st);
+      }
+    }
+    if (!st) return;
+    const cd = el.querySelector('[data-cd]');
+    if (cd && st.e) cd.textContent = M.fmtDuration(st.e.iqamah - now + 999, S);
+    const ck = el.querySelector('[data-clock]');
+    if (ck) ck.textContent = M.fmtHM(now, S);
+  }
+  function arLine(text) { return S.general.lang !== 'ar' && S.general.showArabic ? `<span class="ar">${text}</span>` : ''; }
+  function overlayHtml(st) {
+    const e = st.e;
+    switch (st.t) {
+      case 'adhan':
+        return `<div class="rings"><i></i><i></i><i></i></div>
+          <div class="ov-k">${T.timeFor} ${T.adhan}</div>
+          ${showAr() ? `<div class="ov-ar ar">${arOf(e)}</div>` : ''}
+          <div class="ov-big">${M.esc(nameOf(e))}</div>
+          <div class="ov-time">${hm(e.start)}</div>
+          ${e.iqamah ? `<div class="ov-sub">${T.iqamah} <b>${hm(e.iqamah)}</b></div>` : ''}`;
+      case 'iq':
+        return `<div class="ov-k">${T.iqamahIn} · ${M.esc(nameOf(e))}</div>
+          <div class="ov-cd num" data-cd></div>
+          <div class="ov-row">${ICON.rows}<span>${T.straightenRows}</span>${arLine('استووا واعتدلوا')}</div>
+          <div class="ov-row">${ICON.phoneOff}<span>${T.silencePhones}</span></div>`;
+      case 'salah':
+        return `<div class="calm">${ICON.phoneOff}<div class="s1">${T.salahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الصلاة قائمة</div>' : ''}<div class="s3">${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
+      case 'khutbah':
+        return `<div class="calm">${ICON.mic}<div class="s1">${T.khutbahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الخطبة — الرجاء الإنصات</div>' : ''}<div class="s3">${T.listenSilently} · ${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
+      case 'urgent':
+        return `<div class="ov-card glass"><div class="ov-tag">${T.notice}</div><div class="ov-msg">${M.esc(S.live.urgent)}</div></div>`;
+      case 'identify':
+        return `<div class="ov-card glass"><div class="ov-tag">Screen ID</div><div class="ov-msg" style="font-size:12vmin">${M.esc(ID)}</div><div class="ov-sub">${M.esc(location.host || 'local')}</div></div>`;
+      default: return '';
+    }
+  }
+
+  /* ---------------- sound ---------------- */
+  const aud = $('aud');
+  function ensureCtx() {
+    if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+    return actx;
+  }
+  function soundLocked() { return S.features.adhanSound && (!ensureCtx() || actx.state !== 'running'); }
+  function unlock() {
+    const c = ensureCtx(); if (c && c.state !== 'running') c.resume();
+    aud.muted = true; aud.play().then(() => { aud.pause(); aud.muted = false; }).catch(() => { aud.muted = false; });
+    setTimeout(updateSoundChip, 300);
+  }
+  function updateSoundChip() {
+    const el = $('soundchip');
+    el.textContent = '🔈 ' + T.tapSound;
+    el.classList.toggle('show', soundLocked());
+  }
+  setInterval(updateSoundChip, 5000);
+  addEventListener('keydown', (ev) => {
+    unlock();
+    if (ev.key === 's' || ev.key === 'S' || ev.key === 'ContextMenu') location.href = 'admin.html' + (ID !== 'main' ? '?s=' + ID : '');
+  });
+  addEventListener('pointerdown', () => {
+    unlock();
+    document.body.classList.remove('nocursor');
+    clearTimeout(window.__cur); window.__cur = setTimeout(() => document.body.classList.add('nocursor'), 4000);
+    if (document.documentElement.requestFullscreen && !document.fullscreenElement && matchMedia('(pointer:fine)').matches) document.documentElement.requestFullscreen().catch(() => {});
+  });
+
+  function tone(freq, start, dur, gain) {
+    const c = ensureCtx(); if (!c) return;
+    const t0 = c.currentTime + start;
+    [1, 2, 3].forEach((h, i) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = freq * h;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain / (i * 2.5 + 1), t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+    });
+  }
+  function chime() { const v = +S.adhan.volume || 0.8; [[880, 0], [659.25, 0.9], [783.99, 1.8], [587.33, 2.7]].forEach(([f, s]) => tone(f, s, 2.6, 0.35 * v)); }
+  function beep() { const v = +S.adhan.volume || 0.8; tone(1046.5, 0, 0.35, 0.3 * v); tone(1046.5, 0.5, 0.6, 0.3 * v); }
+  function playFile(name, fallback) {
+    const md = (meta.media || {})[name];
+    if (!md || !M.serverAvailable()) return fallback();
+    aud.src = M.API + `/media/${encodeURIComponent(ID)}/${name}?v=${md.v}`;
+    aud.volume = Math.min(1, Math.max(0, +S.adhan.volume || 0.8));
+    aud.play().catch(fallback);
+  }
+  function playAdhan(e) {
+    const name = e.key === 'fajr' && (meta.media || {})['adhan-fajr'] ? 'adhan-fajr' : 'adhan';
+    playFile(name, chime);
+  }
+  function triggers(now) {
+    const crossed = (t) => t && lastTick < t.getTime() && t.getTime() <= now.getTime() && now - t < 15000;
+    for (const e of [...days.today.events, ...days.yesterday.events]) {
+      if (e.sun) continue;
+      if (S.features.adhanSound && S.adhan.prayers[e.key] !== false && crossed(e.start)) playAdhan(e);
+      if (S.adhan.beepBeforeIqamah && S.features.iqamah && crossed(e.iqamah)) playFile('iqamah', beep);
+    }
+  }
+
+  /* ---------------- commands from phone ---------------- */
+  function command(c) {
+    const now = M.now(S);
+    const ev = (days && days.today.events.find((e) => e.key === (c.prayer || 'dhuhr'))) || days.today.events[2];
+    switch (c.type) {
+      case 'reload': location.reload(); break;
+      case 'test-adhan': forced = { t: 'adhan', e: ev, until: new Date(now.getTime() + 25000) }; playAdhan(ev); break;
+      case 'test-iqamah': forced = { t: 'iq', e: Object.assign({}, ev, { iqamah: new Date(now.getTime() + 15000), jumuah: false }), until: new Date(now.getTime() + 15000) }; break;
+      case 'test-salah': forced = { t: 'salah', e: ev, until: new Date(now.getTime() + 20000) }; beep(); break;
+      case 'identify': forced = { t: 'identify', until: new Date(now.getTime() + 15000) }; break;
+      case 'stop': forced = null; aud.pause(); break;
+    }
+    ovKey = null; tick(true);
+  }
+
+  /* ---------------- theme, night dim, burn-in ---------------- */
+  function phaseOf(now) {
+    const t = days.today.times;
+    if (now < t.fajr) return 'night';
+    if (now < t.sunrise) return 'fajr';
+    if (now < t.dhuhr) return 'morning';
+    if (now < t.asr) return 'noon';
+    if (now < t.maghrib) return 'asr';
+    if (now < t.isha) return 'maghrib';
+    return 'night';
+  }
+  function theme(now) {
+    const name = S.display.theme === 'dynamic' ? phaseOf(now) : S.display.theme;
+    const pal = M.THEMES[name] || M.THEMES.night;
+    const sig = pal.join();
+    if (sig === palSig) return;
+    const first = !palSig;
+    palSig = sig;
+    const grad = `radial-gradient(130% 80% at 50% 115%, ${pal[2]} 0%, transparent 62%), radial-gradient(90% 70% at 85% -10%, ${pal[1]} 0%, transparent 60%), linear-gradient(168deg, ${pal[1]} 0%, ${pal[0]} 62%)`;
+    const a = $('bgA'), b = $('bgB');
+    if (first) { a.style.background = grad; a.style.opacity = 1; b.style.opacity = 0; bgFlip = false; }
+    else { const [on, off] = bgFlip ? [a, b] : [b, a]; on.style.background = grad; on.style.opacity = 1; off.style.opacity = 0; bgFlip = !bgFlip; }
+    const r = document.documentElement.style;
+    r.setProperty('--o1', pal[3]); r.setProperty('--o2', pal[4]); r.setProperty('--o3', pal[5]);
+    document.querySelector('meta[name=theme-color]').content = pal[0];
+  }
+  function nightDim(p) {
+    const on = S.features.nightDim && M.inWindow(`${p.h}:${p.mi}`, S.display.nightFrom, S.display.nightTo);
+    $('dim').style.opacity = on ? (1 - Math.min(1, Math.max(0.1, +S.display.nightLevel || 0.45))).toFixed(2) : 0;
+  }
+  const BURN = [[0, 0], [7, 4], [-7, 4], [7, -4], [-7, -4], [0, 7], [0, -7], [4, 0], [-4, 0]];
+  function burnIn(now) {
+    if (!S.features.burnIn) { if (burn[0] || burn[1]) { burn = [0, 0]; layout(); } return; }
+    if (now - burnAt < 180000) return;
+    burnAt = now.getTime();
+    burn = BURN[Math.floor(now / 180000) % BURN.length];
+    layout();
+  }
+
+  /* ---------------- pattern, wake lock, offline cache ---------------- */
+  const star = "<svg xmlns='http://www.w3.org/2000/svg' width='132' height='132' viewBox='0 0 132 132'><g fill='none' stroke='white' stroke-width='1.3'><rect x='38' y='38' width='56' height='56'/><rect x='38' y='38' width='56' height='56' transform='rotate(45 66 66)'/><circle cx='66' cy='66' r='14'/><path d='M0 0L27 27M132 0L105 27M0 132L27 105M132 132L105 105M66 0V12M66 132V120M0 66H12M132 66H120'/></g></svg>";
+  $('pattern').style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(star)}")`;
+
+  let wake = null;
+  async function keepAwake() { try { if ('wakeLock' in navigator && document.visibilityState === 'visible') wake = await navigator.wakeLock.request('screen'); } catch (e) { /* */ } }
+  document.addEventListener('visibilitychange', keepAwake); keepAwake();
+  if ('serviceWorker' in navigator && window.isSecureContext && M.serverAvailable()) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+  setInterval(() => { if (S.clock.followServer && store.status === 'online') M.syncServerClock(); }, 10 * 60000);
+  store.on('status', (st) => { if (st === 'online') M.syncServerClock(); });
+
+  layout();
+  ensureCtx();
+  store.start();
+  tick(true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Meeqat · Control</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+@font-face{font-family:Outfit;font-weight:400;font-display:swap;src:url(fonts/outfit-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:500;font-display:swap;src:url(fonts/outfit-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:600;font-display:swap;src:url(fonts/outfit-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:Amiri;font-weight:400;font-display:swap;src:url(fonts/amiri-arabic-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Noto Sans Malayalam';font-weight:400;font-display:swap;src:url(fonts/noto-sans-malayalam-malayalam-400-normal.woff2) format('woff2')}
+:root{--acc:#f3c96b;--ink:#1b1306;--bg:#070b1d;--card:rgba(255,255,255,.07);--card2:rgba(255,255,255,.11);--line:rgba(255,255,255,.12);--mut:rgba(255,255,255,.62);--dim:rgba(255,255,255,.4);--ok:#4ade80;--warn:#fbbf24;--bad:#f87171}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:#fff;font-family:Outfit,'Noto Sans Malayalam',Amiri,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:16px}
+body{background:radial-gradient(120% 60% at 100% 0%,#2a1b5c 0%,transparent 60%),radial-gradient(100% 60% at 0% 100%,#0c3a4a 0%,transparent 60%),var(--bg);background-attachment:fixed;padding-bottom:calc(88px + env(safe-area-inset-bottom))}
+.ar{font-family:Amiri,serif;direction:rtl}
+.num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+button,input,select,textarea{font:inherit;color:inherit}
+.glass{background:linear-gradient(140deg,rgba(255,255,255,.1),rgba(255,255,255,.035));border:1px solid var(--line);border-radius:20px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.wrap{max-width:720px;margin:0 auto;padding:16px}
+header.app{position:sticky;top:0;z-index:20;padding:12px 16px calc(12px);padding-top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;background:rgba(7,11,29,.72);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(243,201,107,.14);flex:none}
+.logo svg{width:22px;height:22px;fill:var(--acc)}
+.htitle{flex:1;min-width:0}
+.htitle b{display:block;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.htitle small{color:var(--mut);font-size:12.5px}
+.sync{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--mut);padding:7px 12px;border-radius:999px;background:var(--card);white-space:nowrap}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.sync.ok i{background:var(--ok)}.sync.busy i{background:var(--warn)}.sync.bad i{background:var(--bad)}
+h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:500;margin:26px 6px 10px}
+.card{padding:6px 16px;margin-bottom:12px}
+.card.pad{padding:16px}
+.row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row>div:first-child{flex:1;min-width:0}
+.row b{font-weight:500;display:block}
+.row small{display:block;color:var(--mut);font-size:13px;margin-top:2px;line-height:1.35}
+.field{display:block;padding:10px 0;border-bottom:1px solid var(--line)}
+.field:last-child{border-bottom:0}
+.field>span{display:block;font-size:13px;color:var(--mut);margin-bottom:6px}
+input[type=text],input[type=number],input[type=time],input[type=date],input[type=month],input[type=password],input[type=tel],select,textarea{width:100%;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:12px;padding:12px 13px;outline:none;font-size:16px}
+input:focus,select:focus,textarea:focus{border-color:var(--acc)}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#fff 50%),linear-gradient(135deg,#fff 50%,transparent 50%);background-position:calc(100% - 18px) 52%,calc(100% - 13px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+select option{background:#111830}
+textarea{min-height:84px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+/* toggle */
+.tog input{display:none}
+.tog i{position:relative;width:50px;height:30px;border-radius:999px;background:rgba(255,255,255,.18);flex:none;transition:.2s}
+.tog i::after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.tog input:checked+i{background:var(--acc)}
+.tog input:checked+i::after{left:23px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--card2);border-radius:14px;padding:12px 16px;font-weight:500;cursor:pointer;min-height:46px}
+.btn:active{transform:scale(.98)}
+.btn.pri{background:var(--acc);color:var(--ink);border-color:var(--acc)}
+.btn.bad{color:#fecaca;border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.12)}
+.btn.sm{min-height:36px;padding:7px 12px;border-radius:11px;font-size:14px}
+.btn.wide{width:100%}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;background:rgba(0,0,0,.28);border-radius:12px;padding:3px;border:1px solid var(--line)}
+.seg button{flex:1;border:0;background:none;padding:9px 6px;border-radius:9px;font-size:14px;color:var(--mut);cursor:pointer}
+.seg button.on{background:var(--acc);color:var(--ink);font-weight:600}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:var(--card2);font-size:22px;cursor:pointer}
+.step input{width:72px;text-align:center}
+.iq{padding:16px;margin-bottom:12px}
+.iqh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.iqh b{font-size:20px;font-weight:600}
+.iqh .ar{color:var(--acc);font-size:20px;margin-left:8px}
+.iqh small{color:var(--mut)}
+.iqres{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.iqres span{color:var(--mut);font-size:14px}
+.iqres b{font-size:26px;color:var(--acc);font-weight:600}
+.today{width:100%;border-collapse:collapse}
+.today td,.today th{padding:10px 6px;text-align:left;border-bottom:1px solid var(--line)}
+.today th{font-size:12px;color:var(--dim);font-weight:500;letter-spacing:.12em;text-transform:uppercase}
+.today tr:last-child td{border-bottom:0}
+.today td.t{font-size:18px;font-weight:500}
+.today td.q{color:var(--acc);font-size:18px;font-weight:500}
+.today tr.nx td{color:var(--acc)}
+.today tr.nx td:first-child::before{content:"● ";font-size:10px;vertical-align:middle}
+.list-item{padding:14px 0;border-bottom:1px solid var(--line)}
+.list-item:last-child{border-bottom:0}
+.li-actions{display:flex;gap:8px;align-items:center;margin-top:8px}
+.li-actions .grow{flex:1}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:rgba(7,11,29,.85);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid var(--line)}
+.tabs button{flex:1;max-width:120px;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--dim);padding:6px 0;cursor:pointer}
+.tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button.on{color:var(--acc)}
+.banner{padding:13px 15px;border-radius:14px;margin-bottom:12px;font-size:14px;line-height:1.4;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fde68a}
+.banner.info{background:rgba(124,200,255,.1);border-color:rgba(124,200,255,.3);color:#cfe8ff}
+.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:12px 18px;border-radius:14px;font-weight:500;opacity:0;transition:.25s;z-index:50;max-width:90vw;text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login .box{width:100%;max-width:400px;padding:28px}
+.login h1{font-size:28px;margin:18px 0 4px;font-weight:600}
+.login p{color:var(--mut);margin:0 0 20px;line-height:1.45}
+.pinput{letter-spacing:.5em;text-align:center;font-size:24px!important}
+.err{color:var(--bad);font-size:14px;min-height:20px;margin-top:8px}
+.qrbox{background:#fff;border-radius:14px;padding:10px;width:180px;margin:12px auto}
+.qrbox svg{display:block;width:100%}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;color:var(--mut)}
+.tt{width:100%;border-collapse:collapse;font-size:13px}
+.tt th,.tt td{padding:7px 4px;text-align:center;border-bottom:1px solid var(--line)}
+.tt th{color:var(--dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.tt tr.fri td{color:var(--acc)}
+.tt tr.td td{background:rgba(243,201,107,.12)}
+.hide{display:none!important}
+.muted{color:var(--mut);font-size:14px;line-height:1.45}
+@media print{body{background:#fff;color:#000;padding:0}header.app,.tabs,.noprint{display:none!important}.glass{background:none;border:0}.tt th,.tt td{border-color:#ccc;color:#000!important}.wrap{max-width:none}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<section id="loginView" class="login hide">
+  <div class="box glass">
+    <div class="logo" style="width:56px;height:56px;border-radius:16px"><svg viewBox="0 0 24 24" style="width:30px;height:30px"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></div>
+    <h1>Meeqat Control</h1>
+    <p>Change everything on the TV from this phone. Enter the screen ID and PIN.</p>
+    <label class="field"><span>Screen ID</span><input type="text" id="lgId" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>PIN</span><input type="password" id="lgPin" class="pinput" inputmode="numeric" autocomplete="current-password" maxlength="12"></label>
+    <div class="err" id="lgErr"></div>
+    <button class="btn pri wide" id="lgGo" style="margin-top:10px">Connect</button>
+    <button class="btn wide hide" id="lgLocal" style="margin-top:10px">Use on this device only (no server)</button>
+  </div>
+</section>
+
+<!-- ============ APP ============ -->
+<section id="appView" class="hide">
+  <header class="app">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></div>
+    <div class="htitle"><b id="hName">Masjid</b><small id="hSub"></small></div>
+    <div class="sync" id="sync"><i></i><span>Ready</span></div>
+  </header>
+  <main class="wrap" id="main"></main>
+  <nav class="tabs" id="tabs">
+    <button data-tab="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg>Home</button>
+    <button data-tab="iqamah"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Iqamah</button>
+    <button data-tab="notices"><svg viewBox="0 0 24 24"><path d="M4 10v4h3l6 4V6L7 10Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>Notices</button>
+    <button data-tab="features"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="5" rx="2.5"/><rect x="3" y="13" width="18" height="5" rx="2.5"/><circle cx="16.5" cy="8.5" r="1.5"/><circle cx="7.5" cy="15.5" r="1.5"/></svg>Features</button>
+    <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Settings</button>
+  </nav>
+</section>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileIn" accept="audio/*" class="hide">
+<input type="file" id="jsonIn" accept="application/json,.json" class="hide">
+
+<script src="vendor/adhan.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = Miqat, $ = (i) => document.getElementById(i), esc = M.esc;
+  let ID = M.screenId();
+  let store = M.createAdminStore(ID);
+  let S = M.withDefaults(null), NAME = '', MEDIA = {}, MODE = 'server', TAB = 'home';
+  let saveTimer = null, pending = false, viewers = 0, pinIsDefault = false, retryTimer = null;
+
+  /* ================= login ================= */
+  function showLogin(msg) {
+    $('appView').classList.add('hide'); $('loginView').classList.remove('hide');
+    $('lgId').value = ID; $('lgErr').textContent = msg || '';
+    if (!M.serverAvailable()) { $('lgLocal').classList.remove('hide'); $('lgGo').classList.add('hide'); $('lgErr').textContent = 'Opened as a file — settings will be saved on this device only.'; }
+    setTimeout(() => $('lgPin').focus(), 100);
+  }
+  async function doLogin(pin, silent) {
+    const id = ($('lgId').value || ID).trim().toLowerCase();
+    if (id !== ID) { ID = id; store = M.createAdminStore(ID); try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ } }
+    try {
+      const j = await store.login(pin);
+      try { localStorage.setItem('miqat:pin:' + ID, pin); } catch (e) { /* */ }
+      MODE = 'server'; NAME = j.name; MEDIA = j.media || {}; viewers = j.viewers || 0; pinIsDefault = j.pinIsDefault;
+      S = M.withDefaults(j.settings);
+      if (!j.settings) { NAME = NAME || 'Main screen'; }
+      openApp();
+    } catch (e) {
+      if (e.status === 401 || e.status === 429 || e.status === 404) { try { localStorage.removeItem('miqat:pin:' + ID); } catch (x) { /* */ } showLogin(e.status === 404 ? 'Screen ID not found.' : e.message); }
+      else if (silent) { offlineOpen(); }
+      else { $('lgErr').textContent = 'Cannot reach the server. Check Wi-Fi. (' + e.message + ')'; offerOffline(); }
+    }
+  }
+  function offerOffline() { $('lgLocal').textContent = M.readCache(ID) ? 'Open saved copy (offline)' : 'Use on this device only'; $('lgLocal').classList.remove('hide'); }
+  function offlineOpen() {
+    const c = M.readCache(ID);
+    S = M.withDefaults(c && c.settings); NAME = (c && c.meta && c.meta.name) || NAME;
+    MODE = MODE === 'local' || M._probe === 'no' || !M.serverAvailable() ? 'local' : 'server-offline';
+    openApp(); setSync(MODE === 'local' ? 'This device only' : 'Offline — changes will sync', MODE === 'local' ? 'ok' : 'bad');
+    if (MODE === 'server-offline') scheduleRetry();
+  }
+  $('lgGo').onclick = () => { const p = $('lgPin').value.trim(); if (!p) return; doLogin(p); };
+  $('lgPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgGo').click(); });
+  $('lgLocal').onclick = offlineOpen;
+
+  /* ================= state + saving ================= */
+  const get = (path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), S);
+  function set(path, v) {
+    const ks = path.split('.'); let o = S;
+    for (let i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null) o[ks[i]] = {}; o = o[ks[i]]; }
+    o[ks[ks.length - 1]] = v; changed();
+  }
+  function changed() {
+    pending = true;
+    M.writeCache(ID, Object.assign({}, M.readCache(ID) || {}, { settings: S, meta: { name: NAME } }));
+    setSync('Saving…', 'busy');
+    clearTimeout(saveTimer); saveTimer = setTimeout(flush, 650);
+    refreshLive();
+  }
+  async function flush() {
+    if (!pending) return;
+    if (MODE === 'local') { store.saveLocal(S, NAME); pending = false; setSync('Saved on this device', 'ok'); return; }
+    try {
+      const r = await store.save(S, NAME);
+      pending = false; viewers = r.viewers; MODE = 'server';
+      setSync(`Saved · ${r.viewers} screen${r.viewers === 1 ? '' : 's'} live`, 'ok');
+    } catch (e) {
+      if (e.status === 401) { showLogin('Session expired — enter PIN again.'); return; }
+      MODE = 'server-offline'; setSync('Offline — will sync', 'bad'); scheduleRetry();
+    }
+  }
+  function scheduleRetry() { clearTimeout(retryTimer); retryTimer = setTimeout(async () => { if (pending) await flush(); else { try { await store.fetch(); MODE = 'server'; setSync('Connected', 'ok'); } catch (e) { scheduleRetry(); } } }, 8000); }
+  function setSync(text, cls) { const el = $('sync'); el.className = 'sync ' + (cls || ''); el.querySelector('span').textContent = text; }
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200); }
+  async function cmd(type, extra) {
+    if (MODE !== 'server') return toast('Needs connection to the server');
+    try { const r = await store.command(type, extra); toast(r.viewers ? `Sent to ${r.viewers} screen${r.viewers > 1 ? 's' : ''}` : 'No TV connected right now'); }
+    catch (e) { toast(e.message); }
+  }
+
+  /* ================= form helpers ================= */
+  const tog = (path, label, desc) => `<label class="row tog"><div><b>${label}</b>${desc ? `<small>${desc}</small>` : ''}</div><input type="checkbox" data-b="${path}" ${get(path) ? 'checked' : ''}><i></i></label>`;
+  const txt = (path, label, ph, type) => `<label class="field"><span>${label}</span><input type="${type || 'text'}" data-b="${path}" value="${esc(get(path) ?? '')}" placeholder="${esc(ph || '')}"></label>`;
+  const num = (path, label, step, min, max) => `<label class="field"><span>${label}</span><input type="number" inputmode="decimal" data-b="${path}" data-t="num" value="${esc(get(path) ?? '')}" step="${step || 1}" ${min != null ? `min="${min}"` : ''} ${max != null ? `max="${max}"` : ''}></label>`;
+  const tim = (path, label) => `<label class="field"><span>${label}</span><input type="time" data-b="${path}" value="${esc(get(path) || '')}"></label>`;
+  const sel = (path, label, opts, rr) => `<label class="field"><span>${label}</span><select data-b="${path}" ${rr ? 'data-rr="1"' : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(get(path)) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  const step = (path, d) => `<div class="step"><button data-step="${path}" data-d="-${d}">−</button><input type="number" inputmode="numeric" data-b="${path}" data-t="num" value="${esc(get(path) ?? 0)}"><button data-step="${path}" data-d="${d}">+</button></div>`;
+
+  document.addEventListener('input', onInput);
+  document.addEventListener('change', onInput);
+  function onInput(e) {
+    const el = e.target, b = el.dataset && el.dataset.b;
+    if (!b) return;
+    if (e.type === 'input' && (el.type === 'checkbox' || el.tagName === 'SELECT')) return;
+    let v = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.dataset.t === 'num') { v = parseFloat(v); if (isNaN(v)) v = 0; }
+    if (el.dataset.t === 'numsel') v = parseFloat(v);
+    set(b, v);
+    if (el.dataset.rr) render();
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-step],[data-act],[data-seg],[data-tab]');
+    if (!t) return;
+    if (t.dataset.tab) { TAB = t.dataset.tab; document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === t)); render(); scrollTo(0, 0); return; }
+    if (t.dataset.step) { const p = t.dataset.step; set(p, (+get(p) || 0) + (+t.dataset.d)); const inp = t.parentNode.querySelector('input'); if (inp) inp.value = get(p); return; }
+    if (t.dataset.seg) { set(t.dataset.seg, t.dataset.v); render(); return; }
+    const a = t.dataset.act; if (ACT[a]) ACT[a](t);
+  });
+
+  /* ================= live bits ================= */
+  function todayModel() {
+    const now = M.now(S), p = M.zoned(now, S.general.timezone);
+    return { now, day: M.computeDay(S, p) };
+  }
+  function refreshLive() {
+    const box = $('todayBox'); if (box) box.innerHTML = todayTable();
+    document.querySelectorAll('[data-iqres]').forEach((el) => {
+      const k = el.dataset.iqres, { day } = todayModel();
+      el.textContent = day.iqamah[k] ? M.fmtHM(day.iqamah[k], S) : '—';
+    });
+    $('hName').textContent = S.general.masjidName || NAME || 'Masjid';
+    $('hSub').textContent = `Screen: ${ID}` + (S.location.city ? ` · ${S.location.city}` : '');
+  }
+  setInterval(() => { if (TAB === 'home') { const box = $('todayBox'); if (box) box.innerHTML = todayTable(); } }, 30000);
+
+  function todayTable() {
+    let m;
+    try { m = todayModel(); } catch (e) { return `<div class="muted">Cannot calculate times — check location settings.</div>`; }
+    const { now, day } = m;
+    const evs = day.events.filter((e) => !e.sun || S.features.shuruq);
+    const next = evs.find((e) => e.start > now);
+    const L = M.LANGS.en.p;
+    return `<table class="today"><tr><th>Prayer</th><th>${day.friday ? 'Adhan / Khutbah' : 'Adhan'}</th>${S.features.iqamah ? '<th>Iqamah</th>' : ''}</tr>` +
+      evs.map((e) => `<tr class="${e === next ? 'nx' : ''}"><td>${e.jumuah ? L.jumuah : L[e.key]} <span class="ar" style="color:var(--dim)">${e.jumuah ? M.AR_PRAYER.jumuah : M.AR_PRAYER[e.key]}</span></td><td class="t num">${M.fmtHM(e.start, S)}</td>${S.features.iqamah ? `<td class="q num">${e.iqamah ? M.fmtHM(e.iqamah, S) : e.sun ? '<span class="muted">sunrise</span>' : '—'}</td>` : ''}</tr>`).join('') +
+      `</table><div class="muted" style="margin-top:10px">${new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: S.general.timezone || undefined }).format(now)} · ${M.hijriText(M.hijri(M.zoned(now, S.general.timezone), +S.calc.hijriOffset || 0), Object.assign({}, S, { general: Object.assign({}, S.general, { lang: 'en' }) }))}</div>`;
+  }
+
+  /* ================= views ================= */
+  function render() {
+    const v = VIEWS[TAB] || VIEWS.home;
+    $('main').innerHTML = v();
+    refreshLive();
+    if (TAB === 'home') renderTimetable();
+    if (TAB === 'settings') renderShare();
+  }
+
+  const VIEWS = {};
+  VIEWS.home = () => {
+    const local = MODE !== 'server';
+    const urgentOn = S.live.urgent && (!S.live.urgentUntil || Date.now() < S.live.urgentUntil);
+    return `
+    ${pinIsDefault ? `<div class="banner">You are using the default PIN. Change it in <b>Settings › Security</b> before giving the link to others.</div>` : ''}
+    ${MODE === 'local' ? `<div class="banner info">Demo / single-device mode: settings are saved in this browser only. To control a TV from your phone, run the Meeqat server (see README).<br><a class="btn sm" style="margin-top:8px" href="index.html" target="_blank">📺 Open display</a></div>` : ''}
+    <h2>Today</h2>
+    <div class="card pad glass" id="todayBox"></div>
+
+    <h2>Quick mode</h2>
+    <div class="card pad glass">
+      <div class="grid2"><button class="btn" data-act="preset" data-p="home">🏠 Home</button><button class="btn" data-act="preset" data-p="masjid">🕌 Masjid</button></div>
+      <div class="muted" style="margin-top:10px">Turns a group of features on or off at once. Fine-tune each switch in <b>Features</b>.</div>
+    </div>
+
+    <h2>Urgent message on TV</h2>
+    <div class="card pad glass">
+      <textarea id="urgText" placeholder="e.g. Janazah prayer after Asr today">${esc(S.live.urgent || '')}</textarea>
+      <div class="two" style="margin-top:10px">
+        <select id="urgDur"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>1 hour</option><option value="180">3 hours</option><option value="0">Until I clear it</option></select>
+        <button class="btn pri" data-act="urgent">Show now</button>
+      </div>
+      ${urgentOn ? `<button class="btn bad wide" style="margin-top:10px" data-act="urgentClear">Clear message</button>` : ''}
+    </div>
+
+    <h2>TV controls</h2>
+    <div class="card pad glass">
+      <label class="row tog" style="padding-top:0"><div><b>Screen off (black)</b><small>Blank the TV without unplugging it</small></div><input type="checkbox" data-b="live.blank" ${S.live.blank ? 'checked' : ''}><i></i></label>
+      <div class="field"><span>Test with prayer</span><select id="testP">${M.SALAH.map((k) => `<option value="${k}" ${k === 'dhuhr' ? 'selected' : ''}>${M.LANGS.en.p[k]}</option>`).join('')}</select></div>
+      <div class="grid2" style="margin-top:6px">
+        <button class="btn" data-act="cmd" data-c="test-adhan" ${local ? 'disabled' : ''}>🔔 Test adhan</button>
+        <button class="btn" data-act="cmd" data-c="test-iqamah" ${local ? 'disabled' : ''}>⏱ Test iqamah</button>
+        <button class="btn" data-act="cmd" data-c="test-salah" ${local ? 'disabled' : ''}>🤲 Test salah screen</button>
+        <button class="btn" data-act="cmd" data-c="identify" ${local ? 'disabled' : ''}>🆔 Identify TV</button>
+        <button class="btn" data-act="cmd" data-c="stop" ${local ? 'disabled' : ''}>⏹ Stop test/sound</button>
+        <button class="btn" data-act="cmd" data-c="reload" ${local ? 'disabled' : ''}>🔄 Reload TV</button>
+      </div>
+    </div>
+
+    <h2>Clock</h2>
+    <div class="card pad glass">
+      <div class="muted">If the TV shows the wrong time (common on a Raspberry Pi with no internet), fix it from here.</div>
+      <button class="btn wide" style="margin:12px 0" data-act="syncClock" ${MODE !== 'server' ? 'disabled' : ''}>📱 Set TV clock from this phone</button>
+      <div class="row" style="padding-bottom:0"><div><b>Fine adjust (minutes)</b><small>${S.clock.followServer ? 'Phone time sync is ON' : 'Using the TV’s own clock'}</small></div>${step('clock.adjustMin', 1)}</div>
+      ${S.clock.followServer ? `<button class="btn sm" style="margin-top:10px" data-act="clockReset">Use TV’s own clock again</button>` : ''}
+    </div>
+
+    <h2>Monthly timetable</h2>
+    <div class="card pad glass">
+      <div class="two noprint"><input type="month" id="ttMonth"><button class="btn" data-act="print">🖨 Print / PDF</button></div>
+      <div id="ttBox" style="margin-top:12px;overflow-x:auto"></div>
+    </div>`;
+  };
+
+  VIEWS.iqamah = () => {
+    const { day } = todayModel();
+    const on = S.features.iqamah;
+    return `
+    ${!on ? `<div class="banner">Iqamah is turned off. <button class="btn sm" data-act="iqOn" style="margin-left:6px">Turn on</button></div>` : ''}
+    <h2>Iqamah times</h2>
+    ${M.SALAH.map((k) => {
+      const q = S.iqamah[k];
+      return `<div class="iq glass">
+        <div class="iqh"><div><b>${M.LANGS.en.p[k]}</b><span class="ar">${M.AR_PRAYER[k]}</span></div><small>Adhan <span class="num">${M.fmtHM(day.times[k], S)}</span></small></div>
+        <div class="seg"><button data-seg="iqamah.${k}.mode" data-v="offset" class="${q.mode !== 'fixed' ? 'on' : ''}">Minutes after adhan</button><button data-seg="iqamah.${k}.mode" data-v="fixed" class="${q.mode === 'fixed' ? 'on' : ''}">Fixed time</button></div>
+        <div style="margin-top:12px">${q.mode === 'fixed'
+          ? `<input type="time" data-b="iqamah.${k}.time" value="${esc(q.time || '')}">`
+          : `<div class="row" style="padding:0;border:0"><div><b>After adhan</b><small>minutes</small></div>${step(`iqamah.${k}.offset`, 1)}</div>`}</div>
+        <div class="iqres"><span>Today’s iqamah</span><b class="num" data-iqres="${k}"></b></div>
+      </div>`;
+    }).join('')}
+    <div class="card glass">${sel('iqamah.roundTo', 'Round “minutes after adhan” up to', [[0, 'No rounding'], [5, 'Next 5 minutes'], [10, 'Next 10 minutes'], [15, 'Next 15 minutes']].map(([v, l]) => [v, l]), true).replace('data-b="iqamah.roundTo"', 'data-b="iqamah.roundTo" data-t="numsel"')}</div>
+
+    <h2>Jumu'ah (Friday)</h2>
+    <div class="card glass">
+      ${tog('features.jumuah', "Show Jumu'ah on Fridays", 'Replaces Dhuhr with Khutbah and Iqamah times')}
+      <div class="two">${tim('jumuah.khutbah', 'Khutbah starts')}${tim('jumuah.iqamah', 'Jumu’ah iqamah')}</div>
+    </div>
+
+    <h2>Salah screen</h2>
+    <div class="card glass">
+      ${tog('features.iqamahCountdown', 'Big iqamah countdown', 'Full-screen countdown just before iqamah')}
+      ${num('salah.countdownSeconds', 'Countdown length (seconds)', 10, 10, 600)}
+      ${tog('features.salahScreen', 'Dark “Salah in progress” screen', 'Shown from iqamah until the prayer ends')}
+      <div class="three">${M.SALAH.map((k) => num(`salah.minutes.${k}`, M.LANGS.en.p[k] + ' (min)', 1, 1, 60)).join('')}${num('salah.minutes.jumuah', "Jumu'ah (min)", 1, 1, 90)}</div>
+    </div>`;
+  };
+
+  VIEWS.notices = () => `
+    <h2>Scrolling announcements</h2>
+    <div class="card glass">
+      ${tog('features.announcements', 'Show announcements ticker', 'Scrolls along the bottom of the TV')}
+      ${(S.announcements || []).map((a, i) => `<div class="list-item">
+        <textarea data-b="announcements.${i}.text" placeholder="Announcement text (any language)">${esc(a.text)}</textarea>
+        <div class="two" style="margin-top:8px"><label class="field" style="border:0;padding:0"><span>Show from</span><input type="date" data-b="announcements.${i}.from" value="${esc(a.from || '')}"></label><label class="field" style="border:0;padding:0"><span>Until</span><input type="date" data-b="announcements.${i}.to" value="${esc(a.to || '')}"></label></div>
+        <div class="li-actions"><label class="row tog grow" style="border:0;padding:4px 0"><div><b style="font-size:14px">Active</b></div><input type="checkbox" data-b="announcements.${i}.on" ${a.on !== false ? 'checked' : ''}><i></i></label><button class="btn sm bad" data-act="delAnn" data-i="${i}">Delete</button></div>
+      </div>`).join('')}
+      <div style="padding:12px 0"><button class="btn wide" data-act="addAnn">＋ Add announcement</button></div>
+      ${num('display.tickerSpeed', 'Ticker speed (pixels per second)', 10, 20, 400)}
+    </div>
+
+    <h2>Ayah / Hadith of the day</h2>
+    <div class="card glass">
+      ${tog('features.ayah', 'Show rotating ayah/hadith', 'Between the clock and the prayer times')}
+      ${num('display.ayahSeconds', 'Change every (seconds)', 5, 10, 3600)}
+      ${(S.ayahs || []).map((a, i) => `<div class="list-item">
+        <textarea class="ar" dir="rtl" style="font-size:20px;min-height:64px" data-b="ayahs.${i}.ar" placeholder="Arabic text">${esc(a.ar)}</textarea>
+        <textarea style="margin-top:8px;min-height:56px" data-b="ayahs.${i}.tr" placeholder="Translation (any language)">${esc(a.tr)}</textarea>
+        <div class="li-actions"><input type="text" class="grow" data-b="ayahs.${i}.ref" value="${esc(a.ref || '')}" placeholder="Reference"><label class="tog" style="display:flex;align-items:center"><input type="checkbox" data-b="ayahs.${i}.on" ${a.on !== false ? 'checked' : ''}><i></i></label><button class="btn sm bad" data-act="delAyah" data-i="${i}">✕</button></div>
+      </div>`).join('')}
+      <div style="padding:12px 0"><button class="btn wide" data-act="addAyah">＋ Add ayah / hadith</button></div>
+    </div>`;
+
+  VIEWS.features = () => `
+    <h2>On the TV</h2>
+    <div class="card glass">
+      ${tog('features.shuruq', 'Sunrise (Shuruq) card', 'Shows sunrise time with the prayers')}
+      ${tog('features.iqamah', 'Iqamah times', 'Show iqamah under each prayer')}
+      ${tog('features.jumuah', "Jumu'ah on Fridays", 'Khutbah + iqamah instead of Dhuhr')}
+      ${tog('features.announcements', 'Announcements ticker')}
+      ${tog('features.ayah', 'Ayah / hadith strip')}
+      ${tog('features.sunnahTimes', 'Midnight & last third of night', 'Small chips at the top (for Tahajjud)')}
+      ${tog('features.qr', 'QR code to control from phone', 'Hidden automatically when offline')}
+      ${tog('features.tomorrowAfterIsha', 'Show tomorrow after Isha', 'Switches the table to tomorrow’s times at night')}
+      ${sel('features.ramadan', 'Ramadan mode (Suhoor / Iftar / Taraweeh)', [['auto', 'Automatic in Ramadan'], ['on', 'Always on'], ['off', 'Off']])}
+    </div>
+    <h2>Adhan & salah</h2>
+    <div class="card glass">
+      ${tog('features.adhanOverlay', 'Full-screen adhan alert', 'Shows “It’s time for …” at each adhan')}
+      ${tog('features.adhanSound', 'Play adhan sound', 'Uploaded adhan or a soft chime')}
+      ${tog('adhan.beepBeforeIqamah', 'Beep at iqamah time')}
+      ${tog('features.iqamahCountdown', 'Big iqamah countdown')}
+      ${tog('features.salahScreen', 'Dark salah / khutbah screen')}
+    </div>
+    <h2>Screen care</h2>
+    <div class="card glass">
+      ${tog('features.burnIn', 'Burn-in protection', 'Moves the layout a few pixels every 3 minutes')}
+      ${tog('features.nightDim', 'Dim at night')}
+      <div class="three">${tim('display.nightFrom', 'From')}${tim('display.nightTo', 'Until')}${sel('display.nightLevel', 'Brightness', [[0.25, '25%'], [0.35, '35%'], [0.45, '45%'], [0.6, '60%'], [0.75, '75%']]).replace('data-b="display.nightLevel"', 'data-b="display.nightLevel" data-t="numsel"')}</div>
+      ${tog('features.lite', 'Performance mode', 'Turn on for slow TV sticks: removes blur & animation')}
+    </div>`;
+
+  VIEWS.settings = () => {
+    const methodOpts = M.METHODS;
+    return `
+    <h2>Masjid / home</h2>
+    <div class="card glass">
+      ${txt('general.masjidName', 'Name shown on TV', 'e.g. Masjid Al-Noor')}
+      ${txt('general.subtitle', 'Subtitle (optional)', 'e.g. Juma Masjid · Est. 1952')}
+    </div>
+
+    <h2>Language & clock</h2>
+    <div class="card glass">
+      ${sel('general.lang', 'TV language', Object.entries(M.LANGS).map(([k, v]) => [k, v.name]))}
+      ${tog('general.showArabic', 'Also show Arabic prayer names')}
+      ${tog('general.clock24', '24-hour clock')}
+      ${tog('general.showSeconds', 'Show seconds')}
+      ${tog('general.arabicDigits', 'Arabic-Indic digits (٠١٢٣)')}
+    </div>
+
+    <h2>Location</h2>
+    <div class="card glass">
+      ${sel('location.preset', 'Quick pick', [['', '— Choose a city —'], ...M.CITIES.map((c) => [c[0], c[1]])], false).replace('data-b="location.preset"', 'data-b="location.preset" data-act-change="preset"')}
+      ${txt('location.city', 'City name shown on TV')}
+      <div class="two">${num('location.lat', 'Latitude', 0.0001)}${num('location.lng', 'Longitude', 0.0001)}</div>
+      ${txt('general.timezone', 'Time zone (blank = TV’s own)', 'e.g. Asia/Kolkata')}
+      <div style="padding:10px 0"><button class="btn wide" data-act="geo">📍 Use this phone’s location</button></div>
+    </div>
+
+    <h2>Calculation</h2>
+    <div class="card glass">
+      ${sel('calc.method', 'Method', methodOpts, true)}
+      ${S.calc.method === 'Custom' ? `<div class="three">${num('calc.fajrAngle', 'Fajr angle °', 0.1)}${num('calc.ishaAngle', 'Isha angle °', 0.1)}${num('calc.ishaInterval', 'Isha min (0=angle)', 1)}</div>` : ''}
+      ${sel('calc.madhab', 'Asr', [['shafi', "Shafi'i / Maliki / Hanbali (standard)"], ['hanafi', 'Hanafi (later Asr)']])}
+      ${sel('calc.highLat', 'High-latitude rule', [['auto', 'Automatic'], ['middleofthenight', 'Middle of the night'], ['seventhofthenight', 'Seventh of the night'], ['twilightangle', 'Twilight angle']])}
+      <div class="field"><span>Adjust minutes (to match your local timetable)</span>
+        ${M.PRAYERS.map((k) => `<div class="row" style="padding:8px 0"><div><b>${M.LANGS.en.p[k]}</b></div>${step('calc.adjust.' + k, 1)}</div>`).join('')}
+      </div>
+      <div class="row"><div><b>Hijri date adjust (days)</b><small>Kerala often differs by ±1 from Makkah</small></div>${step('calc.hijriOffset', 1)}</div>
+      ${tog('calc.hijriAtMaghrib', 'Hijri date changes at Maghrib')}
+    </div>
+
+    <h2>Look</h2>
+    <div class="card glass">
+      ${sel('display.theme', 'Background', [['dynamic', '✨ Dynamic — changes with prayer time'], ['midnight', 'Midnight'], ['emerald', 'Emerald'], ['maroon', 'Maroon & gold'], ['royal', 'Royal purple'], ['ocean', 'Ocean'], ['graphite', 'Graphite']])}
+      ${sel('display.accent', 'Accent colour', Object.keys(M.ACCENTS).map((k) => [k, k[0].toUpperCase() + k.slice(1)]))}
+      ${sel('display.orientation', 'Screen orientation', [['auto', 'Automatic'], ['landscape', 'Landscape (wide TV)'], ['portrait', 'Portrait (vertical TV)']])}
+    </div>
+
+    <h2>Adhan sound</h2>
+    <div class="card glass">
+      ${tog('features.adhanSound', 'Play adhan sound')}
+      ${sel('adhan.volume', 'Volume', [[0.3, '30%'], [0.5, '50%'], [0.7, '70%'], [0.9, '90%'], [1, '100%']]).replace('data-b="adhan.volume"', 'data-b="adhan.volume" data-t="numsel"')}
+      ${num('adhan.overlayMinutes', 'Adhan alert stays on screen (minutes)', 1, 1, 15)}
+      <div class="field"><span>Play adhan for</span>${M.SALAH.map((k) => `<label class="row tog" style="padding:8px 0"><div><b>${M.LANGS.en.p[k]}</b></div><input type="checkbox" data-b="adhan.prayers.${k}" ${S.adhan.prayers[k] !== false ? 'checked' : ''}><i></i></label>`).join('')}</div>
+      ${['adhan', 'adhan-fajr', 'iqamah'].map((n) => `<div class="row"><div><b>${n === 'adhan' ? 'Adhan audio' : n === 'adhan-fajr' ? 'Fajr adhan audio' : 'Iqamah sound'}</b><small>${MEDIA[n] ? `Uploaded · ${(MEDIA[n].size / 1048576).toFixed(1)} MB` : n === 'adhan' ? 'Not uploaded — a soft chime plays' : n === 'adhan-fajr' ? 'Optional — uses normal adhan if empty' : 'Optional — short beep if empty'}</small></div>
+        <button class="btn sm" data-act="upload" data-n="${n}" ${MODE !== 'server' ? 'disabled' : ''}>${MEDIA[n] ? 'Replace' : 'Upload'}</button>${MEDIA[n] ? `<button class="btn sm bad" data-act="rmMedia" data-n="${n}">✕</button>` : ''}</div>`).join('')}
+      <div class="muted" style="padding:10px 0">Use a recording you have permission to use. MP3 or M4A, up to 15 MB. TV browsers may need one press of OK on the remote to allow sound.</div>
+    </div>
+
+    <h2>Share & screens</h2>
+    <div class="card pad glass" id="shareBox"></div>
+
+    <h2>Security</h2>
+    <div class="card pad glass">
+      <div class="two"><input type="password" id="newPin" inputmode="numeric" placeholder="New PIN (4–12 digits)" maxlength="12"><button class="btn" data-act="pin" ${MODE !== 'server' ? 'disabled' : ''}>Change PIN</button></div>
+      <button class="btn wide" style="margin-top:10px" data-act="logout">Log out of this phone</button>
+    </div>
+
+    <h2>Backup</h2>
+    <div class="card pad glass">
+      <div class="grid2"><button class="btn" data-act="export">⬇ Export settings</button><button class="btn" data-act="import">⬆ Import settings</button></div>
+      <button class="btn bad wide" style="margin-top:10px" data-act="reset">Reset everything to defaults</button>
+      <div class="muted" style="margin-top:12px">Meeqat v${M.VERSION} · prayer times calculated on the device (works offline).</div>
+    </div>`;
+  };
+
+  /* ================= share / timetable ================= */
+  async function renderShare() {
+    const box = $('shareBox'); if (!box) return;
+    if (MODE === 'local' || !M.serverAvailable()) { box.innerHTML = `<div class="muted">Sharing needs the Meeqat server. Run it on a PC/Raspberry Pi in the masjid (offline) or on a cloud host (online).</div>`; return; }
+    let tvUrl = location.origin + '/?s=' + encodeURIComponent(ID);
+    const adminUrl = await M.adminUrl(ID);
+    if (/^(localhost|127\.)/.test(location.hostname)) tvUrl = adminUrl.replace('/admin?', '/?');
+    box.innerHTML = `
+      <div class="muted">Open this link on the TV browser:</div>
+      <div class="mono" style="margin:6px 0 12px">${esc(tvUrl)}</div>
+      <a class="btn wide" href="${esc(tvUrl)}" target="_blank" rel="noopener">📺 Open TV display</a>
+      <div class="muted" style="margin-top:16px">Phone control link (scan to share with another admin):</div>
+      <div class="qrbox">${M.qrSvg(adminUrl)}</div>
+      <div class="mono" style="text-align:center">${esc(adminUrl)}</div>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+        <b>Give Meeqat to another masjid or home</b>
+        <div class="muted" style="margin:4px 0 10px">Creates a separate screen with its own settings and PIN on this same server.</div>
+        <input type="text" id="nsName" placeholder="Name, e.g. Masjid Al-Huda" style="margin-bottom:8px">
+        <div class="two"><input type="password" id="nsPin" inputmode="numeric" placeholder="PIN for them" maxlength="12"><button class="btn pri" data-act="newScreen">Create</button></div>
+        <div id="nsOut"></div>
+      </div>`;
+  }
+  function renderTimetable() {
+    const inp = $('ttMonth'), box = $('ttBox'); if (!inp || !box) return;
+    const now = M.zoned(M.now(S), S.general.timezone);
+    if (!inp.value) inp.value = `${now.y}-${M.pad(now.m)}`;
+    const draw = () => {
+      const [y, m] = inp.value.split('-').map(Number); if (!y) return;
+      const n = new Date(Date.UTC(y, m, 0)).getUTCDate(), L = M.LANGS.en.p;
+      let h = `<div style="font-weight:600;margin-bottom:8px">${esc(S.general.masjidName)} — ${new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)))} · ${esc(S.location.city)}</div><table class="tt"><tr><th>Date</th><th>Hijri</th>${M.PRAYERS.map((k) => `<th>${L[k]}</th>`).join('')}</tr>`;
+      for (let d = 1; d <= n; d++) {
+        const p = { y, m, d }, day = M.computeDay(S, p), hj = M.hijri(p, +S.calc.hijriOffset || 0);
+        const isT = y === now.y && m === now.m && d === now.d;
+        h += `<tr class="${day.dow === 5 ? 'fri' : ''} ${isT ? 'td' : ''}"><td>${d} ${['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][day.dow]}</td><td>${hj.d}/${hj.m}</td>${M.PRAYERS.map((k) => `<td class="num">${M.fmtHM(day.times[k], S)}</td>`).join('')}</tr>`;
+      }
+      box.innerHTML = h + '</table>';
+    };
+    inp.onchange = draw; draw();
+  }
+
+  /* ================= actions ================= */
+  const ACT = {
+    preset(t) { Object.assign(S.features, M.PRESETS[t.dataset.p]); changed(); toast(t.dataset.p === 'home' ? 'Home mode applied' : 'Masjid mode applied'); },
+    urgent() {
+      const txt = $('urgText').value.trim(); if (!txt) return toast('Type a message first');
+      const mins = +$('urgDur').value;
+      S.live.urgent = txt; S.live.urgentUntil = mins ? Date.now() + mins * 60000 : 0; changed(); render(); toast('Message is on the TV');
+    },
+    urgentClear() { S.live.urgent = ''; S.live.urgentUntil = 0; changed(); render(); },
+    cmd(t) { cmd(t.dataset.c, { prayer: ($('testP') || {}).value }); },
+    async syncClock() {
+      try { const t0 = Date.now(); const j = await (await fetch(M.API + '/api/time', { cache: 'no-store' })).json(); const t1 = Date.now(); const server = j.now + (t1 - t0) / 2; S.clock.offsetMs = Math.round(t1 - server); S.clock.followServer = true; changed(); render(); toast('TV clock now follows this phone'); }
+      catch (e) { toast('Could not reach server'); }
+    },
+    clockReset() { S.clock.followServer = false; S.clock.offsetMs = 0; changed(); render(); },
+    print() { window.print(); },
+    iqOn() { S.features.iqamah = true; changed(); render(); },
+    addAnn() { S.announcements = S.announcements || []; S.announcements.push({ id: 'a' + Date.now(), text: '', from: '', to: '', on: true }); changed(); render(); },
+    delAnn(t) { S.announcements.splice(+t.dataset.i, 1); changed(); render(); },
+    addAyah() { S.ayahs = S.ayahs || []; S.ayahs.push({ ar: '', tr: '', ref: '', on: true }); changed(); render(); },
+    delAyah(t) { S.ayahs.splice(+t.dataset.i, 1); changed(); render(); },
+    geo() {
+      if (!navigator.geolocation) return toast('Location not available');
+      if (!window.isSecureContext) return toast('Phone location needs https — pick a city or type coordinates');
+      navigator.geolocation.getCurrentPosition((pos) => {
+        S.location.lat = +pos.coords.latitude.toFixed(4); S.location.lng = +pos.coords.longitude.toFixed(4); S.location.preset = '';
+        try { S.general.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || S.general.timezone; } catch (e) { /* */ }
+        changed(); render(); toast('Location set — type the city name');
+      }, (err) => toast(err.message), { enableHighAccuracy: false, timeout: 15000 });
+    },
+    upload(t) {
+      const fi = $('fileIn'); fi.value = '';
+      fi.onchange = async () => {
+        const f = fi.files[0]; if (!f) return;
+        if (f.size > 15 * 1048576) return toast('File too large (max 15 MB)');
+        toast('Uploading…');
+        try { const r = await store.upload(t.dataset.n, f); MEDIA = r.media; render(); toast('Uploaded'); } catch (e) { toast(e.message); }
+      };
+      fi.click();
+    },
+    async rmMedia(t) { if (!confirm('Remove this audio?')) return; try { await store.removeMedia(t.dataset.n); MEDIA[t.dataset.n] = null; render(); } catch (e) { toast(e.message); } },
+    async pin() {
+      const p = $('newPin').value.trim(); if (!/^\d{4,12}$/.test(p)) return toast('PIN must be 4–12 digits');
+      try { await store.changePin(p); store.setPin(p); localStorage.setItem('miqat:pin:' + ID, p); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
+    },
+    logout() { try { localStorage.removeItem('miqat:pin:' + ID); } catch (e) { /* */ } showLogin(); },
+    export() {
+      const blob = new Blob([JSON.stringify({ app: 'miqat', version: M.VERSION, name: NAME, settings: S }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `miqat-${ID}-settings.json`; a.click();
+    },
+    import() {
+      const fi = $('jsonIn'); fi.value = '';
+      fi.onchange = async () => {
+        try { const j = JSON.parse(await fi.files[0].text()); S = M.withDefaults(j.settings || j); changed(); render(); toast('Settings imported'); }
+        catch (e) { toast('Not a valid settings file'); }
+      };
+      fi.click();
+    },
+    reset() { if (!confirm('Reset all settings to defaults?')) return; S = M.withDefaults(null); changed(); render(); },
+    async newScreen() {
+      const name = $('nsName').value.trim() || 'New screen', pin = $('nsPin').value.trim();
+      if (!/^\d{4,12}$/.test(pin)) return toast('PIN must be 4–12 digits');
+      try {
+        const seed = M.withDefaults(null); seed.general.masjidName = name;
+        const r = await store.createScreen(name, pin, seed);
+        const base = (await M.adminUrl(r.id)).replace(/\/admin\?.*$/, '');
+        $('nsOut').innerHTML = `<div class="banner info" style="margin-top:12px">Created <b>${esc(name)}</b><br>Screen ID: <b>${esc(r.id)}</b><br>TV link: <span class="mono">${esc(base)}/?s=${esc(r.id)}</span><br>Phone link: <span class="mono">${esc(base)}/admin?s=${esc(r.id)}</span></div><div class="qrbox">${M.qrSvg(base + '/admin?s=' + r.id)}</div>`;
+      } catch (e) { toast(e.message); }
+    }
+  };
+  // quick pick city: fills lat/lng/tz/method
+  document.addEventListener('change', (e) => {
+    if (e.target.dataset && e.target.dataset.actChange === 'preset') {
+      const c = M.CITIES.find((x) => x[0] === e.target.value); if (!c) return;
+      S.location.city = c[1].split(',')[0].replace(/\s*\(.*\)/, ''); S.location.lat = c[2]; S.location.lng = c[3]; S.general.timezone = c[4]; S.calc.method = c[5];
+      changed(); render(); toast(`Set to ${c[1]} · ${c[5]} method`);
+    }
+  });
+
+  /* ================= start ================= */
+  function openApp() {
+    $('loginView').classList.add('hide'); $('appView').classList.remove('hide');
+    if (MODE === 'server') setSync(viewers ? `Connected · ${viewers} screen${viewers > 1 ? 's' : ''} live` : 'Connected', 'ok');
+    render();
+  }
+  (async function init() {
+    if ((await M.probe()) === 'no') { MODE = 'local'; offlineOpen(); return; }
+    let saved = null; try { saved = localStorage.getItem('miqat:pin:' + ID); } catch (e) { /* */ }
+    if (M._probe !== 'yes') offerOffline();
+    if (saved) { $('lgId').value = ID; await doLogin(saved, true); } else showLogin();
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "meeqat-prayer-display",
+  "version": "1.0.0",
+  "description": "Glass-style prayer time display for TV with phone control. Works offline on local Wi-Fi or online in the cloud.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=16" },
+  "license": "MIT",
+  "private": true
+}
