@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -50,6 +50,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff', '.txt': 'text/plain; charset=utf-8',
+  '.apk': 'application/vnd.android.package-archive',
   '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.aac': 'audio/aac', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.webm': 'audio/webm'
 };
 const AUDIO_EXT = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/ogg': '.ogg', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/webm': '.webm' };
@@ -110,6 +111,11 @@ function libLoad() { try { return JSON.parse(fs.readFileSync(LIB_INDEX, 'utf8'))
 function libSave(list) { const tmp = LIB_INDEX + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(list, null, 1)); fs.renameSync(tmp, LIB_INDEX); }
 function libFile(id) { const it = libLoad().find((x) => x.id === id); return it ? path.join(LIBRARY, it.file) : null; }
 const LIB_KINDS = ['adhan', 'fajr', 'iqamah', 'other'];
+
+/* ---------- TV pairing: TV shows a 6-digit code, admin enters it on the phone ---------- */
+const pairs = new Map(); // code -> { token, id, exp, ip }
+const pairRate = new Map();
+setInterval(() => { const n = Date.now(); for (const [c, p] of pairs) if (p.exp < n - 3600000) pairs.delete(c); }, 600000);
 
 /* ---------- Emergency PIN reset ----------
  * Set RESET_PIN="main:654321" (or several: "main:654321,masjid-huda-8e3a:1111") in the host's
@@ -242,6 +248,7 @@ function serveStatic(req, res, urlPath) {
   else if (p === '/admin' || p === '/admin/' || p === '/control') p = '/admin.html';
   else if (p === '/register' || p === '/welcome' || p === '/start') p = '/welcome.html';
   else if (p === '/super' || p === '/super/') p = '/super.html';
+  else if (p === '/pair' || p === '/link' || p === '/setup') p = '/pair.html';
   const file = path.normalize(path.join(PUB, decodeURIComponent(p)));
   if (!file.startsWith(PUB)) return send(res, 403, 'Forbidden');
   fs.stat(file, (err, st) => {
@@ -424,6 +431,33 @@ async function handle(req, res) {
     return json(res, 201, { ok: true, id });
   }
 
+  /* ----- short link for the TV app download (easy to type in the Downloader app) ----- */
+  if (p === '/app' || p === '/apk' || p === '/tvapp') {
+    const f = path.join(PUB, 'downloads', 'meeqat-tv.apk');
+    if (!fs.existsSync(f)) return send(res, 404, 'The Meeqat TV app is not built yet.', { 'Content-Type': 'text/plain' });
+    return send(res, 302, '', { Location: '/downloads/meeqat-tv.apk' });
+  }
+
+  /* ----- TV pairing ----- */
+  if (p === '/api/pair' && req.method === 'POST') {
+    const ip = ipOf(req), now = Date.now();
+    const list = (pairRate.get(ip) || []).filter((t) => now - t < 3600000);
+    if (list.length >= 30) return json(res, 429, { error: 'Too many codes requested. Wait a few minutes.' });
+    list.push(now); pairRate.set(ip, list);
+    let code; do { code = String(crypto.randomInt(100000, 1000000)); } while (pairs.has(code));
+    const token = crypto.randomBytes(16).toString('hex');
+    pairs.set(code, { token, id: null, exp: now + 20 * 60000, ip });
+    return json(res, 201, { ok: true, code, token, exp: now + 20 * 60000 });
+  }
+  let pm = /^\/api\/pair\/(\d{6})$/.exec(p);
+  if (pm && req.method === 'GET') {
+    const pr = pairs.get(pm[1]);
+    if (!pr || pr.token !== url.searchParams.get('token')) return json(res, 404, { error: 'Unknown code' });
+    if (!pr.id && pr.exp < Date.now()) return json(res, 410, { error: 'Code expired' });
+    const scr = pr.id ? load(pr.id) : null;
+    return json(res, 200, { ok: true, linked: !!pr.id, id: pr.id, name: scr ? scr.name : null });
+  }
+
   /* ----- adhan library: public list + audio ----- */
   if (p === '/api/library' && req.method === 'GET') {
     return json(res, 200, { ok: true, items: libLoad().map((x) => ({ id: x.id, name: x.name, kind: x.kind, size: x.size, v: x.created })) });
@@ -472,6 +506,16 @@ async function handle(req, res) {
       save(id, scr);
       const viewers = broadcast(id, 'settings', { rev: scr.rev });
       return json(res, 200, { ok: true, rev: scr.rev, viewers });
+    }
+
+    if (action === 'link' && req.method === 'POST') {
+      if (!auth(req, res, scr)) return;
+      const b = await readJson(req);
+      const pr = pairs.get(String(b.code || '').replace(/\D/g, ''));
+      if (!pr || pr.exp < Date.now()) return json(res, 404, { error: 'Code not found or expired. Check the code on the TV.' });
+      pr.id = id;
+      console.log(`  ~ TV linked to "${scr.name}" (${id})`);
+      return json(res, 200, { ok: true });
     }
 
     if (action === 'pin' && req.method === 'POST') {

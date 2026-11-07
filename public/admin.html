@@ -371,6 +371,12 @@ textarea{min-height:84px;resize:vertical}
       ${urgentOn ? `<button class="btn bad wide" style="margin-top:10px" data-act="urgentClear">Clear message</button>` : ''}
     </div>
 
+    <h2>Link a TV</h2>
+    <div class="card pad glass">
+      <div class="muted" style="margin-bottom:10px">Open the Meeqat TV app (or <b>${esc(location.host)}/pair</b> in the TV browser). Type the 6-digit code it shows.</div>
+      <div class="two"><input type="tel" id="linkCode" inputmode="numeric" maxlength="7" placeholder="6-digit code" style="letter-spacing:.3em;text-align:center;font-size:20px"><button class="btn pri" data-act="linkTv" ${local ? 'disabled' : ''}>📺 Link TV</button></div>
+    </div>
+
     <h2>TV controls</h2>
     <div class="card pad glass">
       <label class="row tog" style="padding-top:0"><div><b>Screen off (black)</b><small>Blank the TV without unplugging it</small></div><input type="checkbox" data-b="live.blank" ${S.live.blank ? 'checked' : ''}><i></i></label>
@@ -685,6 +691,12 @@ textarea{min-height:84px;resize:vertical}
     },
     clockReset() { S.clock.followServer = false; S.clock.offsetMs = 0; changed(); render(); },
     print() { window.print(); },
+    async linkTv() {
+      const code = ($('linkCode').value || '').replace(/\D/g, '');
+      if (code.length !== 6) return toast('Enter the 6-digit code from the TV');
+      try { await store.link(code); $('linkCode').value = ''; toast('TV linked ✓ — it will show your screen in a moment'); }
+      catch (e) { toast(e.message); }
+    },
     akAdd() { ensureAdhkar().push({ id: 'u' + Date.now(), ar: '', tr: '', ref: '', count: 1, on: true, prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true, jumuah: true } }); changed(); render(); setTimeout(() => scrollTo(0, document.body.scrollHeight), 50); },
     akDel(t) { if (!confirm('Delete this dhikr?')) return; ensureAdhkar().splice(+t.dataset.i, 1); changed(); render(); },
     akUp(t) { const l = ensureAdhkar(), i = +t.dataset.i; if (i > 0) { [l[i - 1], l[i]] = [l[i], l[i - 1]]; changed(); render(); } },
@@ -764,8 +776,18 @@ textarea{min-height:84px;resize:vertical}
   });
 
   /* ================= start ================= */
+  // A TV pairing code from a scanned QR (admin.html?link=123456)
+  let PENDING_LINK = (new URLSearchParams(location.search).get('link') || '').replace(/\D/g, '').slice(0, 6);
+  if (PENDING_LINK) { try { history.replaceState(null, '', location.pathname + (ID ? '?s=' + ID : '')); } catch (e) { /* */ } }
   function openApp() {
     $('loginView').classList.add('hide'); $('appView').classList.remove('hide');
+    if (PENDING_LINK && MODE === 'server') {
+      const code = PENDING_LINK; PENDING_LINK = '';
+      setTimeout(async () => {
+        if (!confirm(`Link the TV showing code ${code} to “${S.general.masjidName || NAME}”?`)) return;
+        try { await store.link(code); toast('TV linked ✓'); } catch (e) { toast(e.message); }
+      }, 300);
+    }
     if (MODE === 'server') setSync(viewers ? `Connected · ${viewers} screen${viewers > 1 ? 's' : ''} live` : 'Connected', 'ok');
     render();
   }

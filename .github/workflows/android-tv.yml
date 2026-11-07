@@ -1,0 +1,55 @@
+name: Build Meeqat TV app
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android-tv.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-tv
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      MEEQAT_SERVER: ${{ vars.MEEQAT_SERVER || 'https://meeqat.winocle.com' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build signed APK
+        run: gradle -p android assembleRelease --no-daemon --stacktrace
+
+      - name: Publish APK to the website (public/downloads)
+        run: |
+          mkdir -p public/downloads
+          cp android/app/build/outputs/apk/release/app-release.apk public/downloads/meeqat-tv.apk
+          SIZE=$(stat -c%s public/downloads/meeqat-tv.apk)
+          printf '{"version":"1.0.%s","size":%s,"server":"%s","built":"%s"}\n' "$GITHUB_RUN_NUMBER" "$SIZE" "$MEEQAT_SERVER" "$(date -u +%FT%TZ)" > public/downloads/app.json
+          cat public/downloads/app.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meeqat-tv-apk
+          path: public/downloads/meeqat-tv.apk
+
+      - name: Commit APK
+        run: |
+          git config user.name  "meeqat-build-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/downloads
+          git commit -m "Meeqat TV app build ${GITHUB_RUN_NUMBER}" || exit 0
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done

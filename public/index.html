@@ -298,6 +298,7 @@ body.nocursor{cursor:none}
   'use strict';
   const M = Miqat, $ = (i) => document.getElementById(i);
   const EXPLICIT = M.explicitScreenId();
+  const APP = /[?&]app=1/.test(location.search) || /MeeqatTV/.test(navigator.userAgent);
   const ID = EXPLICIT || 'main';
   const store = M.createDisplayStore(ID);
   const stage = $('stage');
@@ -575,7 +576,10 @@ body.nocursor{cursor:none}
     const el = $('status');
     el.classList.remove('show', 'bad');
     if (st === 'offline') { el.textContent = T.offline; el.classList.add('show'); }
-    else if (st === 'notfound') { el.textContent = `Screen "${ID}" not found`; el.classList.add('show', 'bad'); }
+    else if (st === 'notfound') {
+      el.textContent = `Screen "${ID}" not found`; el.classList.add('show', 'bad');
+      if (APP) { try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } setTimeout(() => location.replace('pair.html?app=1'), 4000); }
+    }
     renderQr();
   }
   async function renderQr() {
@@ -837,7 +841,7 @@ body.nocursor{cursor:none}
   tick(true);
   (async () => {
     // A bare link on a Meeqat server shows the welcome / registration page instead of someone's screen.
-    if (!EXPLICIT && (await M.probe()) === 'yes') { location.replace('welcome.html'); return; }
+    if (!EXPLICIT && (await M.probe()) === 'yes') { location.replace(APP ? 'pair.html?app=1' : 'welcome.html'); return; }
     store.start();
   })();
 })();

@@ -102,7 +102,7 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:12px 18px;border-radius:14px;font-weight:500;opacity:0;transition:.25s;z-index:50;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media (max-width:900px){
-  .hero .wrap,.reg{grid-template-columns:1fr}
+  .hero .wrap,.reg,#tvGrid{grid-template-columns:1fr!important}
   .grid,.steps{grid-template-columns:1fr 1fr}
   header.hero{padding:40px 0 70px}
 }
@@ -120,6 +120,7 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 <nav><div class="wrap">
   <a class="brand" href="welcome.html"><span class="mk"><svg viewBox="0 0 24 24"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></span>Meeqat</a>
   <a class="btn sm ghost" href="#features">Features</a>
+  <a class="btn sm ghost" href="#tv-app">TV app</a>
   <a class="btn sm" href="admin.html">Log in</a>
   <a class="btn sm pri" href="#register">Register free</a>
 </div></nav>
@@ -155,6 +156,25 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
     <div class="step glass"><b>Register</b><p>Enter the masjid or home name, city, your mobile number and a PIN.</p></div>
     <div class="step glass"><b>Open the TV link</b><p>Open your personal link once in the TV's browser. It stays on full screen.</p></div>
     <div class="step glass"><b>Control from your phone</b><p>Log in with your mobile number and PIN to set iqamah times, notices, language and theme.</p></div>
+  </div>
+</div></section>
+
+<section id="tv-app"><div class="wrap">
+  <div class="glass" style="padding:34px;display:grid;grid-template-columns:1fr 1.1fr;gap:36px;align-items:center" id="tvGrid">
+    <div>
+      <span class="eyebrow">📺 Meeqat TV app · Android TV · Google TV · Fire TV</span>
+      <h2 style="margin-top:16px">Turn on the TV, and the prayer times are already there</h2>
+      <p class="sub" style="margin-bottom:22px">The free Meeqat TV app starts by itself when the TV is switched on, keeps the screen awake, plays the adhan without pressing anything, and reconnects on its own after a power cut.</p>
+      <div class="cta" style="margin-top:0"><a class="btn pri" id="apkBtn" href="app">⬇ Download Meeqat TV (.apk)</a><a class="btn" href="pair.html">Use in any TV browser</a></div>
+      <p class="note" id="apkInfo">For Android TV boxes, Google TV, Fire TV Stick and Android tablets.</p>
+    </div>
+    <div>
+      <div class="steps" style="grid-template-columns:1fr;gap:12px">
+        <div class="step glass" style="padding:18px 22px"><b>Install the "Downloader" app on the TV</b><p>Search for <b>Downloader</b> (by AFTVnews) in the TV's app store. On Fire TV: Settings › My Fire TV › Developer options › allow apps from unknown sources.</p></div>
+        <div class="step glass" style="padding:18px 22px"><b>Type <span style="color:var(--acc)" id="apkShort">this-site/app</span></b><p>Downloader fetches Meeqat TV. Tap <b>Install</b>, then <b>Open</b>. Allow "unknown apps" for Downloader if Android asks.</p></div>
+        <div class="step glass" style="padding:18px 22px"><b>Link it with your phone</b><p>The TV shows a 6-digit code and a QR. Scan it or enter the code in <b>Phone control › Link a TV</b>. Done: from now on the TV opens straight into your prayer screen.</p></div>
+      </div>
+    </div>
   </div>
 </div></section>
 
@@ -294,6 +314,11 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
     try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copied'); } catch (x) { toast('Copy failed — long-press the link'); }
   });
 
+  $('apkShort').textContent = location.host + '/app';
+  fetch('downloads/app.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+    if (j && j.version) $('apkInfo').textContent = `Version ${j.version} · ${(j.size / 1048576).toFixed(1)} MB · for Android TV, Google TV, Fire TV Stick and Android tablets (Android 5+).`;
+    else { $('apkBtn').classList.remove('pri'); $('apkBtn').textContent = 'TV app coming soon'; $('apkBtn').removeAttribute('href'); }
+  }).catch(() => {});
   M.info().then((i) => {
     if (i.support) $('support').textContent = ' · Help: ' + i.support;
     if (i.registration === 'closed') { $('regForm').innerHTML = `<p style="margin:0">Registration is currently closed.${i.support ? ' Please contact ' + esc(i.support) + '.' : ''}</p>`; }

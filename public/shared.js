@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.4.0';
+  M.VERSION = '1.5.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -610,6 +610,7 @@
       async fetch() { const r = await fetch(M.API + `/api/screens/${id}`, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); },
       async save(settings, name, owner) { return api('PUT', `/api/screens/${id}/settings`, { settings, name, owner }); },
       async command(type, extra) { return api('POST', `/api/screens/${id}/command`, Object.assign({ type }, extra || {})); },
+      async link(code) { return api('POST', `/api/screens/${id}/link`, { code }); },
       async changePin(newPin) { return api('POST', `/api/screens/${id}/pin`, { newPin }); },
       async upload(name, file) { return api('PUT', `/api/screens/${id}/media/${name}`, file, file.type || 'audio/mpeg'); },
       async removeMedia(name) { return api('DELETE', `/api/screens/${id}/media/${name}`); },
