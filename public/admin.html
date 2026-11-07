@@ -162,6 +162,7 @@ textarea{min-height:84px;resize:vertical}
 <script src="vendor/qrcode.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
+<script src="places.js"></script>
 <script>
 (function () {
   'use strict';
@@ -328,7 +329,7 @@ textarea{min-height:84px;resize:vertical}
     $('main').innerHTML = v();
     refreshLive();
     if (TAB === 'home') renderTimetable();
-    if (TAB === 'settings') renderShare();
+    if (TAB === 'settings') { renderShare(); mountPlaces(); }
   }
 
   const VIEWS = {};
@@ -502,11 +503,12 @@ textarea{min-height:84px;resize:vertical}
 
     <h2>Location</h2>
     <div class="card glass">
-      ${sel('location.preset', 'Quick pick', [['', '— Choose a city —'], ...M.CITIES.map((c) => [c[0], c[1]])], false).replace('data-b="location.preset"', 'data-b="location.preset" data-act-change="preset"')}
-      ${txt('location.city', 'City name shown on TV')}
-      <div class="two">${num('location.lat', 'Latitude', 0.0001)}${num('location.lng', 'Longitude', 0.0001)}</div>
-      ${txt('general.timezone', 'Time zone (blank = TV’s own)', 'e.g. Asia/Kolkata')}
-      <div style="padding:10px 0"><button class="btn wide" data-act="geo">📍 Use this phone’s location</button></div>
+      <div id="locBox" style="padding-top:12px"></div>
+      <details style="padding:6px 0 12px"><summary class="muted" style="cursor:pointer;padding:6px 0">Advanced: exact coordinates & time zone</summary>
+        ${txt('location.city', 'City name shown on TV')}
+        <div class="two">${num('location.lat', 'Latitude', 0.0001)}${num('location.lng', 'Longitude', 0.0001)}</div>
+        ${txt('general.timezone', 'Time zone (blank = TV’s own)', 'e.g. Asia/Kolkata')}
+      </details>
     </div>
 
     <h2>Calculation</h2>
@@ -556,6 +558,21 @@ textarea{min-height:84px;resize:vertical}
       <div class="muted" style="margin-top:12px">Meeqat v${M.VERSION} · prayer times calculated on the device (works offline).</div>
     </div>`;
   };
+
+  /* ================= location picker ================= */
+  function mountPlaces() {
+    const box = $('locBox'); if (!box || !window.MeeqatPlaces) return;
+    const cur = Object.assign({}, S.location, { tz: S.general.timezone, method: S.calc.method, madhab: S.calc.madhab });
+    MeeqatPlaces.mount(box, cur, (v, kind) => {
+      const before = S.location || {};
+      const bigMove = v.countryCode !== before.countryCode || v.region !== before.region;
+      S.location = { countryCode: v.countryCode || '', country: v.country || '', region: v.region || '', city: v.city || '', area: v.area || '', lat: +v.lat, lng: +v.lng, preset: '' };
+      if (kind === 'area') { changed(); return; }
+      if (v.tz) S.general.timezone = v.tz;
+      if (bigMove) { S.calc.method = v.method || S.calc.method; S.calc.madhab = v.madhab || S.calc.madhab; toast(`${v.region || v.country}: ${v.method} method · ${v.madhab === 'hanafi' ? 'Hanafi' : "Shafi'i"} Asr`); }
+      changed(); render();
+    });
+  }
 
   /* ================= share / timetable ================= */
   async function renderShare() {

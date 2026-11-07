@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.2.0';
+  M.VERSION = '1.3.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -16,7 +16,7 @@
       masjidName: 'Masjid', subtitle: '', lang: 'en', showArabic: true,
       clock24: true, showSeconds: true, timezone: '', arabicDigits: false
     },
-    location: { city: 'Kozhikode', lat: 11.2588, lng: 75.7804, preset: 'kozhikode' },
+    location: { countryCode: 'IN', country: 'India', region: 'Kerala', city: 'Kozhikode', area: '', lat: 11.2588, lng: 75.7804, preset: '' },
     calc: {
       method: 'Karachi', madhab: 'shafi', highLat: 'auto', fajrAngle: 18, ishaAngle: 18, ishaInterval: 0,
       adjust: { fajr: 0, sunrise: 0, dhuhr: 0, asr: 0, maghrib: 0, isha: 0 },

@@ -111,6 +111,7 @@ Open `public/index.html` directly, or put the `public` folder on any static host
 **Server variables (Railway › Variables):**
 - `SUPER_ADMIN_PASSWORD`: **required** to switch on `/super` (at least 8 characters).
 - `SUPPORT_CONTACT`: e.g. `+91 98xxx xxxxx`. Shown on "Forgot PIN?" and on disabled screens.
+- Location is picked as **Country → Region/State → City/Town → Area/Locality** (built-in list: all Kerala towns by district, India, GCC and 20+ countries). "Search any place" and "Use my location" use OpenStreetMap. Time zone, method and Asr are set automatically from the country/region.
 - `REGISTRATION`: `open` (default; new screens work at once), `approval` (wait until you approve them in `/super`), or `closed`.
 - `RESET_PIN` = `screen-id:newpin`: emergency reset. It's easier to use **Reset PIN** in `/super`.
 - `ALLOWED_ORIGINS`, `DEFAULT_PIN`, `DATA_DIR`, `PORT`: as described above.

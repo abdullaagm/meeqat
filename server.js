@@ -331,7 +331,8 @@ async function handle(req, res) {
         const st = x.settings || {}, loc = st.location || {}, gen = st.general || {};
         return {
           id: x.id, name: x.name, displayName: gen.masjidName || x.name, type: (x.owner && x.owner.type) || 'masjid',
-          city: (x.owner && x.owner.city) || loc.city || '', contact: x.owner ? x.owner.contact : '', mobile: x.owner ? x.owner.mobile : '', email: x.owner ? x.owner.email : '',
+          city: [loc.area, loc.city].filter(Boolean).join(', ') || (x.owner && x.owner.city) || '',
+          region: [loc.region, loc.country].filter(Boolean).join(', '), contact: x.owner ? x.owner.contact : '', mobile: x.owner ? x.owner.mobile : '', email: x.owner ? x.owner.email : '',
           created: x.created, updated: x.updated, rev: x.rev, lastSeen: Math.max(seen.get(x.id) || 0, x.lastSeen || 0) || null,
           live: (clients.get(x.id) || new Set()).size, disabled: !!x.disabled, pending: !!x.pending, pinIsDefault: !!x.pinIsDefault,
           lang: gen.lang || 'en', lat: loc.lat, lng: loc.lng

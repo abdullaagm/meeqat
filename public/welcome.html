@@ -175,12 +175,9 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
     <form class="form glass" id="regForm" autocomplete="on" novalidate>
       <div class="seg" id="typeSeg"><button type="button" data-v="masjid" class="on">🕌 Masjid</button><button type="button" data-v="home">🏠 Home</button></div>
       <label class="field"><span id="nameLbl">Masjid name</span><input id="fName" maxlength="80" placeholder="e.g. Masjid Al-Noor, Kuttichira" required></label>
-      <label class="field"><span>City / location</span><select id="fCity"></select></label>
-      <div id="manualLoc" class="hide">
-        <label class="field"><span>City name</span><input id="fCityName" maxlength="80" placeholder="e.g. Vadakara"></label>
-        <div class="two"><label class="field"><span>Latitude</span><input id="fLat" inputmode="decimal" placeholder="11.6"></label><label class="field"><span>Longitude</span><input id="fLng" inputmode="decimal" placeholder="75.59"></label></div>
-        <button type="button" class="btn sm" id="geoBtn" style="margin:-4px 0 14px">📍 Use my current location</button>
-      </div>
+      <div class="field"><span style="font-weight:600;color:#fff;font-size:15px">Location</span></div>
+      <div id="loc"></div>
+      <label class="field"><span>Asr calculation</span><select id="fAsr"><option value="shafi">Shafi'i / Maliki / Hanbali (standard)</option><option value="hanafi">Hanafi (later Asr)</option></select></label>
       <div class="two">
         <label class="field"><span>Your name</span><input id="fContact" maxlength="80" autocomplete="name" placeholder="Contact person"></label>
         <label class="field"><span>TV language</span><select id="fLang"></select></label>
@@ -208,6 +205,7 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 <script src="vendor/adhan.min.js"></script>
 <script src="vendor/qrcode.js"></script>
 <script src="shared.js"></script>
+<script src="places.js"></script>
 <script>
 (function () {
   'use strict';
@@ -215,11 +213,9 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
   const opened = Date.now();
   let TYPE = 'masjid';
 
-  // city & language pickers
-  const cities = M.CITIES;
-  $('fCity').innerHTML = cities.map((c) => `<option value="${c[0]}">${esc(c[1])}</option>`).join('') + '<option value="__other">Other — enter my location…</option>';
-  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const guess = cities.find((c) => c[4] === tz); if (guess) $('fCity').value = guess[0]; } catch (e) { /* */ }
-  $('fCity').onchange = () => $('manualLoc').classList.toggle('hide', $('fCity').value !== '__other');
+  // location: Country → Region → City → Area
+  const picker = MeeqatPlaces.mount($('loc'), null, (v, kind) => { if (kind !== 'area' && kind !== 'city') $('fAsr').value = v.madhab || 'shafi'; });
+  $('fAsr').value = picker.value.madhab || 'shafi';
   $('fLang').innerHTML = Object.entries(M.LANGS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
   try { const nl = (navigator.language || 'en').slice(0, 2); if (M.LANGS[nl]) $('fLang').value = nl; } catch (e) { /* */ }
 
@@ -229,10 +225,6 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
     $('typeSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
     $('nameLbl').textContent = TYPE === 'home' ? 'Home name (shown on the TV)' : 'Masjid name';
     $('fName').placeholder = TYPE === 'home' ? 'e.g. Abdulla’s Home' : 'e.g. Masjid Al-Noor, Kuttichira';
-  };
-  $('geoBtn').onclick = () => {
-    if (!navigator.geolocation) return toast('Location not available on this device');
-    navigator.geolocation.getCurrentPosition((p) => { $('fLat').value = p.coords.latitude.toFixed(4); $('fLng').value = p.coords.longitude.toFixed(4); toast('Location added'); }, (e) => toast(e.message), { timeout: 15000 });
   };
 
   function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200); }
@@ -248,29 +240,19 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 
     // build starting settings
     const s = M.withDefaults(null);
-    let city, lat, lng, tz = '', method = 'MuslimWorldLeague';
-    if ($('fCity').value === '__other') {
-      city = $('fCityName').value.trim(); lat = parseFloat($('fLat').value); lng = parseFloat($('fLng').value);
-      if (!city) return fail('Please enter your city name.');
-      if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return fail('Please enter latitude and longitude, or tap “Use my current location”.');
-      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (x) { /* */ }
-      if (tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta' || tz === 'Asia/Karachi' || tz === 'Asia/Dhaka') method = 'Karachi';
-      else if (tz === 'Asia/Dubai') method = 'Dubai';
-      else if (tz === 'Asia/Riyadh') method = 'UmmAlQura';
-    } else {
-      const c = cities.find((x) => x[0] === $('fCity').value);
-      city = c[1].split(',')[0].replace(/\s*\(.*\)/, ''); lat = c[2]; lng = c[3]; tz = c[4]; method = c[5];
-      s.location.preset = c[0];
-    }
-    s.general.masjidName = name; s.general.lang = $('fLang').value; s.general.timezone = tz;
-    s.location.city = city; s.location.lat = lat; s.location.lng = lng; s.calc.method = method;
+    const L = picker.value;
+    if (!L.city || !(Math.abs(L.lat) <= 90 && Math.abs(L.lng) <= 180)) return fail('Please choose your city, or search for your town.');
+    const city = L.city;
+    s.general.masjidName = name; s.general.lang = $('fLang').value; s.general.timezone = L.tz || '';
+    s.location = { countryCode: L.countryCode || '', country: L.country || '', region: L.region || '', city: L.city, area: L.area || '', lat: +L.lat, lng: +L.lng, preset: '' };
+    s.calc.method = L.method || 'MuslimWorldLeague'; s.calc.madhab = $('fAsr').value;
     Object.assign(s.features, M.PRESETS[TYPE]);
     if (TYPE === 'home') s.announcements = [];
 
     $('submit').disabled = true; $('submit').textContent = 'Creating…';
     try {
       const r = await M.post('/api/register', {
-        name, type: TYPE, city, contact: $('fContact').value.trim(), mobile, email: $('fEmail').value.trim(),
+        name, type: TYPE, city: [L.area, city, L.region, L.country].filter(Boolean).join(', '), contact: $('fContact').value.trim(), mobile, email: $('fEmail').value.trim(),
         pin, settings: s, website: $('fWeb').value, elapsed: Date.now() - opened
       });
       try { localStorage.setItem('miqat:pin:' + r.id, pin); localStorage.setItem('miqat:screen', r.id); } catch (x) { /* */ }

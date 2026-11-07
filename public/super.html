@@ -186,14 +186,14 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
     $('stats').innerHTML = st.map(([l, v, c]) => `<div class="stat glass ${c}"><small>${l}</small><b>${v}</b></div>`).join('');
     $('chips').innerHTML = FILTERS.map(([k, l]) => `<button class="chip ${FILTER === k ? 'on' : ''}" data-f="${k}">${l}</button>`).join('');
     const q = $('q').value.trim().toLowerCase();
-    const list = DATA.filter((x) => match(x, FILTER) && (!q || [x.name, x.displayName, x.city, x.contact, x.mobile, x.email, x.id].join(' ').toLowerCase().includes(q)));
+    const list = DATA.filter((x) => match(x, FILTER) && (!q || [x.name, x.displayName, x.city, x.region, x.contact, x.mobile, x.email, x.id].join(' ').toLowerCase().includes(q)));
     $('empty').classList.toggle('hide', list.length > 0);
     $('rows').innerHTML = list.map((x) => {
       const mob = String(x.mobile || '').replace(/[^\d+]/g, '');
       const wa = mob ? 'https://wa.me/' + mob.replace(/^\+/, '') : '';
       const tv = location.origin + location.pathname.replace(/[^/]*$/, '') + '?s=' + encodeURIComponent(x.id);
       return `<tr>
-        <td><b>${esc(x.displayName || x.name)}</b><span class="s">${esc(x.city || '—')} · ${esc((M.LANGS[x.lang] || M.LANGS.en).name)}</span><span class="mono">${esc(x.id)}</span></td>
+        <td><b>${esc(x.displayName || x.name)}</b><span class="s">${esc(x.city || '—')}${x.region ? ' · ' + esc(x.region) : ''} · ${esc((M.LANGS[x.lang] || M.LANGS.en).name)}</span><span class="mono">${esc(x.id)}</span></td>
         <td>${esc(x.contact || '—')}<span class="s">${mob ? `<a href="tel:${esc(mob)}">${esc(x.mobile)}</a>${wa ? ` · <a href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}` : '—'}</span>${x.email ? `<span class="s"><a href="mailto:${esc(x.email)}">${esc(x.email)}</a></span>` : ''}</td>
         <td><span class="live"><i class="dot ${isOnline(x) ? 'on' : ''}"></i>${isOnline(x) ? `${x.live} TV${x.live > 1 ? 's' : ''} live` : 'Offline'}</span><span class="s">Last seen ${ago(x.lastSeen)}</span></td>
         <td>${fmtDate(x.created)}<span class="s">Edited ${ago(x.updated)}</span></td>

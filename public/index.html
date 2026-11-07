@@ -316,7 +316,7 @@ body.nocursor{cursor:none}
     document.body.classList.toggle('lite', !!S.features.lite);
     document.body.classList.toggle('nolsp', !['en', 'id', 'tr', 'fr'].includes(lang));
     $('mname').textContent = S.general.masjidName || meta.name || 'Meeqat';
-    $('msub').textContent = [S.general.subtitle, S.location.city].filter(Boolean).join('  ·  ');
+    $('msub').textContent = [S.general.subtitle, [S.location.area, S.location.city].filter(Boolean).join(', ')].filter(Boolean).join('  ·  ');
     $('tlabel').textContent = T.notice;
     $('qrcap').textContent = T.scan;
     layout();
