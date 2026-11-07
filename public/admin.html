@@ -124,12 +124,17 @@ textarea{min-height:84px;resize:vertical}
   <div class="box glass">
     <div class="logo" style="width:56px;height:56px;border-radius:16px"><svg viewBox="0 0 24 24" style="width:30px;height:30px"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></div>
     <h1>Meeqat Control</h1>
-    <p>Change everything on the TV from this phone. Enter the screen ID and PIN.</p>
-    <label class="field"><span>Screen ID</span><input type="text" id="lgId" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+    <p>Log in to control your masjid or home screen.</p>
+    <div class="seg" id="lgMode" style="margin-bottom:6px"><button type="button" data-m="mobile" class="on">Mobile number</button><button type="button" data-m="id">Screen ID</button></div>
+    <label class="field" id="lgMobileF"><span>Mobile number used when registering</span><input type="tel" id="lgMobile" inputmode="tel" autocomplete="tel" placeholder="+91 98xxx xxxxx"></label>
+    <label class="field hide" id="lgIdF"><span>Screen ID</span><input type="text" id="lgId" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
     <label class="field"><span>PIN</span><input type="password" id="lgPin" class="pinput" inputmode="numeric" autocomplete="current-password" maxlength="12"></label>
     <div class="err" id="lgErr"></div>
     <button class="btn pri wide" id="lgGo" style="margin-top:10px">Connect</button>
+    <div id="lgPick"></div>
     <button class="btn wide hide" id="lgLocal" style="margin-top:10px">Use on this device only (no server)</button>
+    <div class="muted" style="margin-top:18px;text-align:center">New here? <a href="welcome.html#register" style="color:var(--acc)">Register your masjid or home</a></div>
+    <div class="muted" style="margin-top:8px;text-align:center;font-size:13px" id="lgHelp">Forgot your PIN? Ask the Meeqat administrator to reset it.</div>
   </div>
 </section>
 
@@ -161,17 +166,18 @@ textarea{min-height:84px;resize:vertical}
 (function () {
   'use strict';
   const M = Miqat, $ = (i) => document.getElementById(i), esc = M.esc;
-  let ID = M.screenId();
+  let ID = M.explicitScreenId() || '';
   let store = M.createAdminStore(ID);
-  let S = M.withDefaults(null), NAME = '', MEDIA = {}, MODE = 'server', TAB = 'home';
+  let S = M.withDefaults(null), NAME = '', MEDIA = {}, MODE = 'server', TAB = 'home', OWNER = {}, LGMODE = 'mobile';
   let saveTimer = null, pending = false, viewers = 0, pinIsDefault = false, retryTimer = null;
 
   /* ================= login ================= */
   function showLogin(msg) {
     $('appView').classList.add('hide'); $('loginView').classList.remove('hide');
-    $('lgId').value = ID; $('lgErr').textContent = msg || '';
+    $('lgId').value = ID; $('lgErr').textContent = msg || ''; $('lgPick').innerHTML = '';
+    setLgMode(ID ? 'id' : 'mobile');
     if (!M.serverAvailable()) { $('lgLocal').classList.remove('hide'); $('lgGo').classList.add('hide'); $('lgErr').textContent = 'Opened as a file — settings will be saved on this device only.'; }
-    setTimeout(() => $('lgPin').focus(), 100);
+    setTimeout(() => (LGMODE === 'mobile' && !$('lgMobile').value ? $('lgMobile') : $('lgPin')).focus(), 100);
   }
   async function doLogin(pin, silent) {
     const id = ($('lgId').value || ID).trim().toLowerCase();
@@ -179,11 +185,13 @@ textarea{min-height:84px;resize:vertical}
     try {
       const j = await store.login(pin);
       try { localStorage.setItem('miqat:pin:' + ID, pin); } catch (e) { /* */ }
-      MODE = 'server'; NAME = j.name; MEDIA = j.media || {}; viewers = j.viewers || 0; pinIsDefault = j.pinIsDefault;
+      MODE = 'server'; NAME = j.name; MEDIA = j.media || {}; viewers = j.viewers || 0; pinIsDefault = j.pinIsDefault; OWNER = j.owner || {};
+      try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ }
       S = M.withDefaults(j.settings);
       if (!j.settings) { NAME = NAME || 'Main screen'; }
       openApp();
     } catch (e) {
+      if (e.status === 403) { showLogin(e.message); return; }
       if (e.status === 401 || e.status === 429 || e.status === 404) { try { localStorage.removeItem('miqat:pin:' + ID); } catch (x) { /* */ } showLogin(e.status === 404 ? 'Screen ID not found.' : e.message); }
       else if (silent) { offlineOpen(); }
       else { $('lgErr').textContent = 'Cannot reach the server. Check Wi-Fi. (' + e.message + ')'; offerOffline(); }
@@ -197,7 +205,26 @@ textarea{min-height:84px;resize:vertical}
     openApp(); setSync(MODE === 'local' ? 'This device only' : 'Offline — changes will sync', MODE === 'local' ? 'ok' : 'bad');
     if (MODE === 'server-offline') scheduleRetry();
   }
-  $('lgGo').onclick = () => { const p = $('lgPin').value.trim(); if (!p) return; doLogin(p); };
+  function setLgMode(m) {
+    LGMODE = m;
+    $('lgMode').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.m === m));
+    $('lgMobileF').classList.toggle('hide', m !== 'mobile'); $('lgIdF').classList.toggle('hide', m !== 'id');
+  }
+  $('lgMode').onclick = (e) => { const b = e.target.closest('button'); if (b) { setLgMode(b.dataset.m); $('lgPick').innerHTML = ''; } };
+  $('lgGo').onclick = async () => {
+    const p = $('lgPin').value.trim(); if (!p) return;
+    $('lgErr').textContent = ''; $('lgPick').innerHTML = '';
+    if (LGMODE === 'id') return doLogin(p);
+    const mob = $('lgMobile').value.trim();
+    if (mob.replace(/\D/g, '').length < 8) { $('lgErr').textContent = 'Enter the mobile number you registered with.'; return; }
+    try {
+      const j = await M.post('/api/find', { mobile: mob, pin: p });
+      if (j.screens.length === 1) { $('lgId').value = j.screens[0].id; return doLogin(p); }
+      $('lgPick').innerHTML = '<div class="muted" style="margin:14px 0 8px">Choose a screen:</div>' + j.screens.map((x) => `<button class="btn wide" style="margin-bottom:8px;justify-content:space-between" data-pick="${esc(x.id)}"><span>${x.type === 'home' ? '🏠' : '🕌'} ${esc(x.name)}</span><small class="muted">${esc(x.city || '')}${x.disabled ? ' · disabled' : x.pending ? ' · pending' : ''}</small></button>`).join('');
+    } catch (e) { $('lgErr').textContent = e.status ? e.message : 'Cannot reach the server. Check your internet.'; if (!e.status) offerOffline(); }
+  };
+  $('lgPick').onclick = (e) => { const b = e.target.closest('[data-pick]'); if (!b) return; $('lgId').value = b.dataset.pick; doLogin($('lgPin').value.trim()); };
+  $('lgMobile').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgPin').focus(); });
   $('lgPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgGo').click(); });
   $('lgLocal').onclick = offlineOpen;
 
@@ -219,7 +246,7 @@ textarea{min-height:84px;resize:vertical}
     if (!pending) return;
     if (MODE === 'local') { store.saveLocal(S, NAME); pending = false; setSync('Saved on this device', 'ok'); return; }
     try {
-      const r = await store.save(S, NAME);
+      const r = await store.save(S, NAME, OWNER);
       pending = false; viewers = r.viewers; MODE = 'server';
       setSync(`Saved · ${r.viewers} screen${r.viewers === 1 ? '' : 's'} live`, 'ok');
     } catch (e) {
@@ -247,7 +274,9 @@ textarea{min-height:84px;resize:vertical}
   document.addEventListener('input', onInput);
   document.addEventListener('change', onInput);
   function onInput(e) {
-    const el = e.target, b = el.dataset && el.dataset.b;
+    const el = e.target;
+    if (el.dataset && el.dataset.owner) { if (e.type === 'change' || el.tagName !== 'SELECT') { OWNER[el.dataset.owner] = el.value; changed(); } return; }
+    const b = el.dataset && el.dataset.b;
     if (!b) return;
     if (e.type === 'input' && (el.type === 'checkbox' || el.tagName === 'SELECT')) return;
     let v = el.type === 'checkbox' ? el.checked : el.value;
@@ -454,6 +483,14 @@ textarea{min-height:84px;resize:vertical}
       ${txt('general.subtitle', 'Subtitle (optional)', 'e.g. Juma Masjid · Est. 1952')}
     </div>
 
+    ${MODE !== 'local' ? `<h2>Contact details</h2>
+    <div class="card glass">
+      <label class="field"><span>Contact person</span><input type="text" data-owner="contact" value="${esc(OWNER.contact || '')}"></label>
+      <label class="field"><span>Mobile number (used to log in)</span><input type="tel" data-owner="mobile" value="${esc(OWNER.mobile || '')}"></label>
+      <label class="field"><span>Email</span><input type="email" data-owner="email" value="${esc(OWNER.email || '')}"></label>
+      <label class="field"><span>Type</span><select data-owner="type"><option value="masjid" ${OWNER.type !== 'home' ? 'selected' : ''}>Masjid</option><option value="home" ${OWNER.type === 'home' ? 'selected' : ''}>Home</option></select></label>
+    </div>` : ''}
+
     <h2>Language & clock</h2>
     <div class="card glass">
       ${sel('general.lang', 'TV language', Object.entries(M.LANGS).map(([k, v]) => [k, v.name]))}
@@ -535,11 +572,9 @@ textarea{min-height:84px;resize:vertical}
       <div class="qrbox">${M.qrSvg(adminUrl)}</div>
       <div class="mono" style="text-align:center">${esc(adminUrl)}</div>
       <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
-        <b>Give Meeqat to another masjid or home</b>
-        <div class="muted" style="margin:4px 0 10px">Creates a separate screen with its own settings and PIN on this same server.</div>
-        <input type="text" id="nsName" placeholder="Name, e.g. Masjid Al-Huda" style="margin-bottom:8px">
-        <div class="two"><input type="password" id="nsPin" inputmode="numeric" placeholder="PIN for them" maxlength="12"><button class="btn pri" data-act="newScreen">Create</button></div>
-        <div id="nsOut"></div>
+        <b>Add another masjid or home</b>
+        <div class="muted" style="margin:4px 0 10px">Register it separately. If you use the same mobile number, you can log in to both with your mobile number and PIN.</div>
+        <a class="btn wide" href="welcome.html#register">＋ Register another screen</a>
       </div>`;
   }
   function renderTimetable() {
@@ -605,7 +640,7 @@ textarea{min-height:84px;resize:vertical}
       const p = $('newPin').value.trim(); if (!/^\d{4,12}$/.test(p)) return toast('PIN must be 4–12 digits');
       try { await store.changePin(p); store.setPin(p); localStorage.setItem('miqat:pin:' + ID, p); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
     },
-    logout() { try { localStorage.removeItem('miqat:pin:' + ID); } catch (e) { /* */ } showLogin(); },
+    logout() { try { localStorage.removeItem('miqat:pin:' + ID); localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } ID = ''; $('lgPin').value = ''; showLogin(); },
     export() {
       const blob = new Blob([JSON.stringify({ app: 'miqat', version: M.VERSION, name: NAME, settings: S }, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `miqat-${ID}-settings.json`; a.click();
@@ -646,8 +681,9 @@ textarea{min-height:84px;resize:vertical}
     render();
   }
   (async function init() {
-    if ((await M.probe()) === 'no') { MODE = 'local'; offlineOpen(); return; }
-    let saved = null; try { saved = localStorage.getItem('miqat:pin:' + ID); } catch (e) { /* */ }
+    if ((await M.probe()) === 'no') { MODE = 'local'; ID = ID || 'main'; store = M.createAdminStore(ID); offlineOpen(); return; }
+    M.info().then((i) => { if (i.support) $('lgHelp').textContent = 'Forgot your PIN? Contact ' + i.support; });
+    let saved = null; try { saved = ID && localStorage.getItem('miqat:pin:' + ID); } catch (e) { /* */ }
     if (M._probe !== 'yes') offerOffline();
     if (saved) { $('lgId').value = ID; await doLogin(saved, true); } else showLogin();
   })();

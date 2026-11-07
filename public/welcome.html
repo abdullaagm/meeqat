@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070b1d">
+<title>Meeqat · Prayer times for your masjid & home</title>
+<meta name="description" content="A beautiful prayer-time screen for any TV. Iqamah, Jumu'ah, announcements and adhan — controlled from your phone. Free to register.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+@font-face{font-family:Outfit;font-weight:300;font-display:swap;src:url(fonts/outfit-latin-300-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:400;font-display:swap;src:url(fonts/outfit-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:500;font-display:swap;src:url(fonts/outfit-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:600;font-display:swap;src:url(fonts/outfit-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:Outfit;font-weight:700;font-display:swap;src:url(fonts/outfit-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:Amiri;font-weight:400;font-display:swap;src:url(fonts/amiri-arabic-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Noto Sans Malayalam';font-weight:400;font-display:swap;src:url(fonts/noto-sans-malayalam-malayalam-400-normal.woff2) format('woff2')}
+:root{--acc:#f3c96b;--ink:#1b1306;--bg:#060a1b;--line:rgba(255,255,255,.12);--mut:rgba(255,255,255,.66);--dim:rgba(255,255,255,.42);--ok:#4ade80;--bad:#f87171}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:#fff;font-family:Outfit,'Noto Sans Malayalam',Amiri,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:17px;line-height:1.55;overflow-x:hidden}
+.bgfx{position:fixed;inset:0;z-index:-1;overflow:hidden}
+.bgfx i{position:absolute;border-radius:50%;filter:blur(110px);opacity:.5}
+.bgfx i:nth-child(1){width:60vmax;height:60vmax;left:-20vmax;top:-25vmax;background:#3b2a8f}
+.bgfx i:nth-child(2){width:50vmax;height:50vmax;right:-18vmax;top:20vh;background:#0f5a5f}
+.bgfx i:nth-child(3){width:45vmax;height:45vmax;left:20vw;bottom:-30vmax;background:#7a3b2a;opacity:.35}
+.ar{font-family:Amiri,serif}
+a{color:var(--acc);text-decoration:none}
+.glass{background:linear-gradient(140deg,rgba(255,255,255,.11),rgba(255,255,255,.035));border:1px solid var(--line);border-radius:24px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:0 30px 80px rgba(0,0,0,.25)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 22px}
+nav{position:sticky;top:0;z-index:20;background:rgba(6,10,27,.7);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:14px;height:68px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:600;font-size:21px;color:#fff;flex:1}
+.brand span.mk{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(243,201,107,.15)}
+.brand svg{width:22px;height:22px;fill:var(--acc)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:#fff;border-radius:14px;padding:12px 20px;font:inherit;font-weight:500;cursor:pointer;min-height:48px;white-space:nowrap}
+.btn.pri{background:var(--acc);color:var(--ink);border-color:var(--acc);font-weight:600}
+.btn.sm{min-height:38px;padding:8px 14px;font-size:15px;border-radius:11px}
+.btn:active{transform:scale(.98)}
+.btn[disabled]{opacity:.5;pointer-events:none}
+header.hero{padding:70px 0 40px}
+.hero .wrap{display:grid;grid-template-columns:1.05fr 1fr;gap:50px;align-items:center}
+.eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 14px;border-radius:999px;background:rgba(243,201,107,.12);border:1px solid rgba(243,201,107,.3);color:var(--acc);font-size:14px;font-weight:500}
+h1{font-size:clamp(36px,5vw,58px);line-height:1.08;margin:18px 0 16px;font-weight:600;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--acc)}
+.lead{font-size:19px;color:var(--mut);max-width:560px}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
+.shot{position:relative}
+.shot img{display:block;width:100%;border-radius:18px;border:1px solid var(--line);box-shadow:0 40px 100px rgba(0,0,0,.5)}
+.shot .phone{position:absolute;width:30%;right:-4%;bottom:-12%;border-radius:22px;border:6px solid #11152a;box-shadow:0 30px 70px rgba(0,0,0,.6)}
+section{padding:60px 0}
+h2{font-size:clamp(28px,3.4vw,40px);margin:0 0 10px;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--mut);margin:0 0 32px;max-width:640px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.feat{padding:24px}
+.feat .ic{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(243,201,107,.13);font-size:22px;margin-bottom:14px}
+.feat b{display:block;font-size:19px;font-weight:600;margin-bottom:6px}
+.feat p{margin:0;color:var(--mut);font-size:15.5px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
+.step{padding:26px;position:relative}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:22px;right:24px;font-size:54px;font-weight:700;color:rgba(255,255,255,.07);line-height:1}
+.step b{display:block;font-size:19px;margin-bottom:6px}
+.step p{margin:0;color:var(--mut);font-size:15.5px}
+/* form */
+.reg{display:grid;grid-template-columns:1fr 1.15fr;gap:40px;align-items:start}
+.form{padding:28px}
+.field{display:block;margin-bottom:14px}
+.field>span{display:block;font-size:14px;color:var(--mut);margin-bottom:6px}
+.field>span i{font-style:normal;color:var(--dim)}
+input,select{width:100%;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:12px;padding:13px 14px;color:#fff;font:inherit;font-size:16px;outline:none}
+input:focus,select:focus{border-color:var(--acc)}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#fff 50%),linear-gradient(135deg,#fff 50%,transparent 50%);background-position:calc(100% - 18px) 52%,calc(100% - 13px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:34px}
+select option{background:#111830}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:flex;background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:14px;padding:4px;margin-bottom:16px}
+.seg button{flex:1;border:0;background:none;color:var(--mut);font:inherit;font-weight:500;padding:11px;border-radius:10px;cursor:pointer}
+.seg button.on{background:var(--acc);color:var(--ink);font-weight:600}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.err{color:#fecaca;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);border-radius:12px;padding:11px 14px;margin:6px 0 14px;font-size:15px;display:none}
+.err.show{display:block}
+.note{font-size:13.5px;color:var(--dim);margin-top:12px}
+.perks{list-style:none;padding:0;margin:20px 0 0}
+.perks li{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;color:var(--mut)}
+.perks li::before{content:"✓";flex:none;width:24px;height:24px;border-radius:50%;background:rgba(74,222,128,.15);color:var(--ok);display:grid;place-items:center;font-size:14px;font-weight:700;margin-top:1px}
+.hide{display:none!important}
+/* success */
+.done{padding:30px}
+.done h3{font-size:28px;margin:6px 0 4px}
+.kv{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.kv span{color:var(--mut);font-size:14px}
+.kv code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;word-break:break-all;color:#fff}
+.links{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+.lk{padding:18px;text-align:center}
+.lk b{display:block;margin-bottom:4px}
+.lk small{display:block;color:var(--mut);font-size:13px;margin-bottom:10px}
+.qr{background:#fff;border-radius:14px;padding:8px;width:150px;margin:0 auto 10px}
+.qr svg{display:block;width:100%}
+.lk code{display:block;font-size:12.5px;color:var(--mut);word-break:break-all;margin-bottom:10px;font-family:ui-monospace,Menlo,monospace}
+.banner{padding:13px 16px;border-radius:14px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fde68a;margin:14px 0;font-size:15px}
+footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:12px 18px;border-radius:14px;font-weight:500;opacity:0;transition:.25s;z-index:50;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:900px){
+  .hero .wrap,.reg{grid-template-columns:1fr}
+  .grid,.steps{grid-template-columns:1fr 1fr}
+  header.hero{padding:40px 0 70px}
+}
+@media (max-width:600px){
+  .grid,.steps,.links{grid-template-columns:1fr}
+  nav .btn.ghost{display:none}
+  .two{grid-template-columns:1fr}
+  .shot .phone{width:34%}
+}
+</style>
+</head>
+<body>
+<div class="bgfx"><i></i><i></i><i></i></div>
+
+<nav><div class="wrap">
+  <a class="brand" href="welcome.html"><span class="mk"><svg viewBox="0 0 24 24"><path d="M14.5 2.5a9.5 9.5 0 1 0 7 15.9A8 8 0 0 1 14.5 2.5Z"/></svg></span>Meeqat</a>
+  <a class="btn sm ghost" href="#features">Features</a>
+  <a class="btn sm" href="admin.html">Log in</a>
+  <a class="btn sm pri" href="#register">Register free</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div>
+    <span class="eyebrow">🕌 For masjids & homes · <span class="ar">مِيقَات</span></span>
+    <h1>Prayer times on your TV, <em>beautifully.</em></h1>
+    <p class="lead">Meeqat turns any TV into a live prayer board. It shows adhan and iqamah times, Jumu'ah, announcements and Ramadan times, and you control everything from your phone.</p>
+    <div class="cta"><a class="btn pri" href="#register">Register your masjid — free</a><a class="btn" href="admin.html">I already have an account</a></div>
+    <p class="note">Works on Android TV, Fire TV Stick, smart TV browsers, Raspberry Pi, tablets and laptops.</p>
+  </div>
+  <div class="shot"><img src="img/preview-tv.jpg" alt="Meeqat prayer time screen on a TV" loading="eager"><img class="phone" src="img/preview-phone.jpg" alt="Meeqat phone control panel"></div>
+</div></header>
+
+<section id="features"><div class="wrap">
+  <h2>Everything a masjid screen needs</h2>
+  <p class="sub">Every feature has its own on/off switch, so the same app works for a large masjid or a living room.</p>
+  <div class="grid">
+    <div class="feat glass"><div class="ic">🕰</div><b>Accurate prayer times</b><p>Calculated on the device for your exact location. Supports Karachi, MWL, Dubai, Umm al-Qura and more, with Shafi'i or Hanafi Asr and ± minute adjustments.</p></div>
+    <div class="feat glass"><div class="ic">📱</div><b>Control from your phone</b><p>Change iqamah times, add notices and show urgent messages. Changes reach the TV within about a second, without touching the TV.</p></div>
+    <div class="feat glass"><div class="ic">⏱</div><b>Iqamah & salah screens</b><p>Iqamah countdown, "Straighten your rows", and a dark "Salah in progress" screen that reminds people to switch off their phones.</p></div>
+    <div class="feat glass"><div class="ic">🕌</div><b>Jumu'ah & Ramadan</b><p>Khutbah and Jumu'ah iqamah on Fridays. Suhoor, Imsak, Iftar countdown and Taraweeh in Ramadan.</p></div>
+    <div class="feat glass"><div class="ic">🌐</div><b>10 languages</b><p>English, العربية, മലയാളം, اردو, हिन्दी, தமிழ், বাংলা, Indonesia, Türkçe and Français, with Arabic prayer names alongside.</p></div>
+    <div class="feat glass"><div class="ic">📶</div><b>Keeps running offline</b><p>If the internet drops, the TV keeps showing correct times and catches up with your changes when it reconnects.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Up and running in 3 minutes</h2>
+  <p class="sub">No app to install and no technician needed.</p>
+  <div class="steps">
+    <div class="step glass"><b>Register</b><p>Enter the masjid or home name, city, your mobile number and a PIN.</p></div>
+    <div class="step glass"><b>Open the TV link</b><p>Open your personal link once in the TV's browser. It stays on full screen.</p></div>
+    <div class="step glass"><b>Control from your phone</b><p>Log in with your mobile number and PIN to set iqamah times, notices, language and theme.</p></div>
+  </div>
+</div></section>
+
+<section id="register"><div class="wrap reg">
+  <div>
+    <h2>Register your masjid or home</h2>
+    <p class="sub" style="margin-bottom:0">Free. You get your own private TV screen and a control panel for your phone.</p>
+    <ul class="perks">
+      <li>Your own TV link and QR code. Only people with your PIN can change it.</li>
+      <li>Log in any time with your mobile number and PIN.</li>
+      <li>Add more TVs to the same masjid by opening the same link on each one.</li>
+      <li>Change everything later: location, language, iqamah times, theme.</li>
+    </ul>
+    <img src="img/preview-portrait.jpg" alt="Meeqat on a vertical TV" style="width:46%;max-width:260px;border-radius:16px;border:1px solid var(--line);margin-top:10px">
+  </div>
+
+  <div>
+    <form class="form glass" id="regForm" autocomplete="on" novalidate>
+      <div class="seg" id="typeSeg"><button type="button" data-v="masjid" class="on">🕌 Masjid</button><button type="button" data-v="home">🏠 Home</button></div>
+      <label class="field"><span id="nameLbl">Masjid name</span><input id="fName" maxlength="80" placeholder="e.g. Masjid Al-Noor, Kuttichira" required></label>
+      <label class="field"><span>City / location</span><select id="fCity"></select></label>
+      <div id="manualLoc" class="hide">
+        <label class="field"><span>City name</span><input id="fCityName" maxlength="80" placeholder="e.g. Vadakara"></label>
+        <div class="two"><label class="field"><span>Latitude</span><input id="fLat" inputmode="decimal" placeholder="11.6"></label><label class="field"><span>Longitude</span><input id="fLng" inputmode="decimal" placeholder="75.59"></label></div>
+        <button type="button" class="btn sm" id="geoBtn" style="margin:-4px 0 14px">📍 Use my current location</button>
+      </div>
+      <div class="two">
+        <label class="field"><span>Your name</span><input id="fContact" maxlength="80" autocomplete="name" placeholder="Contact person"></label>
+        <label class="field"><span>TV language</span><select id="fLang"></select></label>
+      </div>
+      <label class="field"><span>Mobile number <i>(used to log in)</i></span><input id="fMobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98xxx xxxxx" required></label>
+      <label class="field"><span>Email <i>(optional)</i></span><input id="fEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+      <div class="two">
+        <label class="field"><span>Create a PIN <i>(4–12 digits)</i></span><input id="fPin" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" required></label>
+        <label class="field"><span>Confirm PIN</span><input id="fPin2" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" required></label>
+      </div>
+      <div class="hp" aria-hidden="true"><label>Website<input id="fWeb" tabindex="-1" autocomplete="off"></label></div>
+      <div class="err" id="err"></div>
+      <button class="btn pri" style="width:100%" id="submit" type="submit">Create my screen</button>
+      <p class="note">By registering you agree that your masjid name, city and contact details are stored so the administrator can help you. Remember your PIN; it is needed to make changes.</p>
+    </form>
+
+    <div class="done glass hide" id="done"></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">Meeqat · prayer times for masjids & homes<span id="support"></span><br><a href="admin.html">Log in</a> · <a href="#register">Register</a></div></footer>
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="vendor/adhan.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="shared.js"></script>
+<script>
+(function () {
+  'use strict';
+  const M = Miqat, $ = (i) => document.getElementById(i), esc = M.esc;
+  const opened = Date.now();
+  let TYPE = 'masjid';
+
+  // city & language pickers
+  const cities = M.CITIES;
+  $('fCity').innerHTML = cities.map((c) => `<option value="${c[0]}">${esc(c[1])}</option>`).join('') + '<option value="__other">Other — enter my location…</option>';
+  try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; const guess = cities.find((c) => c[4] === tz); if (guess) $('fCity').value = guess[0]; } catch (e) { /* */ }
+  $('fCity').onchange = () => $('manualLoc').classList.toggle('hide', $('fCity').value !== '__other');
+  $('fLang').innerHTML = Object.entries(M.LANGS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
+  try { const nl = (navigator.language || 'en').slice(0, 2); if (M.LANGS[nl]) $('fLang').value = nl; } catch (e) { /* */ }
+
+  $('typeSeg').onclick = (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    TYPE = b.dataset.v;
+    $('typeSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    $('nameLbl').textContent = TYPE === 'home' ? 'Home name (shown on the TV)' : 'Masjid name';
+    $('fName').placeholder = TYPE === 'home' ? 'e.g. Abdulla’s Home' : 'e.g. Masjid Al-Noor, Kuttichira';
+  };
+  $('geoBtn').onclick = () => {
+    if (!navigator.geolocation) return toast('Location not available on this device');
+    navigator.geolocation.getCurrentPosition((p) => { $('fLat').value = p.coords.latitude.toFixed(4); $('fLng').value = p.coords.longitude.toFixed(4); toast('Location added'); }, (e) => toast(e.message), { timeout: 15000 });
+  };
+
+  function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200); }
+  function fail(msg) { const el = $('err'); el.textContent = msg; el.classList.add('show'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+  $('regForm').addEventListener('submit', async (e) => {
+    e.preventDefault(); $('err').classList.remove('show');
+    const name = $('fName').value.trim(), mobile = $('fMobile').value.trim(), pin = $('fPin').value.trim();
+    if (name.length < 2) return fail('Please enter the ' + (TYPE === 'home' ? 'home' : 'masjid') + ' name.');
+    if (mobile.replace(/\D/g, '').length < 8) return fail('Please enter a valid mobile number with country code.');
+    if (!/^\d{4,12}$/.test(pin)) return fail('PIN must be 4–12 digits.');
+    if (pin !== $('fPin2').value.trim()) return fail('The two PINs do not match.');
+
+    // build starting settings
+    const s = M.withDefaults(null);
+    let city, lat, lng, tz = '', method = 'MuslimWorldLeague';
+    if ($('fCity').value === '__other') {
+      city = $('fCityName').value.trim(); lat = parseFloat($('fLat').value); lng = parseFloat($('fLng').value);
+      if (!city) return fail('Please enter your city name.');
+      if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return fail('Please enter latitude and longitude, or tap “Use my current location”.');
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (x) { /* */ }
+      if (tz === 'Asia/Kolkata' || tz === 'Asia/Calcutta' || tz === 'Asia/Karachi' || tz === 'Asia/Dhaka') method = 'Karachi';
+      else if (tz === 'Asia/Dubai') method = 'Dubai';
+      else if (tz === 'Asia/Riyadh') method = 'UmmAlQura';
+    } else {
+      const c = cities.find((x) => x[0] === $('fCity').value);
+      city = c[1].split(',')[0].replace(/\s*\(.*\)/, ''); lat = c[2]; lng = c[3]; tz = c[4]; method = c[5];
+      s.location.preset = c[0];
+    }
+    s.general.masjidName = name; s.general.lang = $('fLang').value; s.general.timezone = tz;
+    s.location.city = city; s.location.lat = lat; s.location.lng = lng; s.calc.method = method;
+    Object.assign(s.features, M.PRESETS[TYPE]);
+    if (TYPE === 'home') s.announcements = [];
+
+    $('submit').disabled = true; $('submit').textContent = 'Creating…';
+    try {
+      const r = await M.post('/api/register', {
+        name, type: TYPE, city, contact: $('fContact').value.trim(), mobile, email: $('fEmail').value.trim(),
+        pin, settings: s, website: $('fWeb').value, elapsed: Date.now() - opened
+      });
+      try { localStorage.setItem('miqat:pin:' + r.id, pin); localStorage.setItem('miqat:screen', r.id); } catch (x) { /* */ }
+      showDone(r, name);
+    } catch (err) {
+      fail(err.status ? err.message : 'Could not reach the server. Check your internet and try again.');
+    } finally { $('submit').disabled = false; $('submit').textContent = 'Create my screen'; }
+  });
+
+  function showDone(r, name) {
+    const base = location.origin + location.pathname.replace(/[^/]*$/, '');
+    const tv = `${base}?s=${r.id}`, admin = `${base}admin.html?s=${r.id}`;
+    const wa = `https://wa.me/?text=${encodeURIComponent(`${name} — Meeqat prayer screen\n\nTV link (open on the TV):\n${tv}\n\nPhone control:\n${admin}\nScreen ID: ${r.id}`)}`;
+    $('regForm').classList.add('hide');
+    const el = $('done'); el.classList.remove('hide');
+    el.innerHTML = `
+      <div style="font-size:40px">✅</div>
+      <h3>${esc(name)} is ready</h3>
+      <p style="color:var(--mut);margin:0">Your PIN is saved on this device. Write it down too, because you need it on other phones.</p>
+      ${r.pending ? `<div class="banner">Your screen is waiting for approval by the administrator. You can set everything up now; the TV starts working once it's approved.</div>` : ''}
+      <div class="kv"><span>Screen ID</span><code>${esc(r.id)}</code></div>
+      <div class="links">
+        <div class="lk glass"><b>📺 TV link</b><small>Open this in the TV's browser</small><div class="qr">${M.qrSvg(tv)}</div><code>${esc(tv)}</code><button class="btn sm" data-copy="${esc(tv)}">Copy</button></div>
+        <div class="lk glass"><b>📱 Phone control</b><small>Scan with your phone</small><div class="qr">${M.qrSvg(admin)}</div><code>${esc(admin)}</code><button class="btn sm" data-copy="${esc(admin)}">Copy</button></div>
+      </div>
+      <div class="two"><a class="btn pri" href="admin.html?s=${encodeURIComponent(r.id)}">Open control panel</a><a class="btn" href="${esc(tv)}" target="_blank" rel="noopener">Preview TV screen</a></div>
+      <a class="btn" style="width:100%;margin-top:12px" href="${wa}" target="_blank" rel="noopener">Share links on WhatsApp</a>
+      <p class="note">Next time, log in at <b>${esc(base)}admin.html</b> with your mobile number and PIN.</p>`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy]'); if (!b) return;
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copied'); } catch (x) { toast('Copy failed — long-press the link'); }
+  });
+
+  M.info().then((i) => {
+    if (i.support) $('support').textContent = ' · Help: ' + i.support;
+    if (i.registration === 'closed') { $('regForm').innerHTML = `<p style="margin:0">Registration is currently closed.${i.support ? ' Please contact ' + esc(i.support) + '.' : ''}</p>`; }
+  });
+})();
+</script>
+</body>
+</html>

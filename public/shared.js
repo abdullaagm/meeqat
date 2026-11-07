@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.1.0';
+  M.VERSION = '1.2.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -440,6 +440,19 @@
     if (q && /^[a-z0-9][a-z0-9-]{0,39}$/.test(q)) { try { localStorage.setItem('miqat:screen', q); } catch (e) { /* */ } return q; }
     try { return localStorage.getItem('miqat:screen') || 'main'; } catch (e) { return 'main'; }
   };
+  /** Screen ID only if the URL or this device names one (no 'main' fallback). */
+  M.explicitScreenId = function () {
+    const q = new URLSearchParams(location.search).get('s');
+    if (q && /^[a-z0-9][a-z0-9-]{0,39}$/.test(q)) return q;
+    try { return localStorage.getItem('miqat:screen') || null; } catch (e) { return null; }
+  };
+  M.post = async function (path, body, headers) {
+    const r = await fetch(M.API + path, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(body || {}) });
+    let j = {}; try { j = await r.json(); } catch (e) { /* */ }
+    if (!r.ok) throw Object.assign(new Error(j.error || 'HTTP ' + r.status), { status: r.status, data: j });
+    return j;
+  };
+  M.info = async function () { try { return await (await fetch(M.API + '/api/info', { cache: 'no-store' })).json(); } catch (e) { return {}; } };
   M.cacheKey = (id) => 'miqat:settings:' + id;
   M.readCache = (id) => { try { return JSON.parse(localStorage.getItem(M.cacheKey(id)) || 'null'); } catch (e) { return null; } };
   M.writeCache = (id, obj) => { try { localStorage.setItem(M.cacheKey(id), JSON.stringify(obj)); } catch (e) { /* */ } };
@@ -476,14 +489,15 @@
       try {
         const r = await fetch(M.API + '/api/screens/' + id, { cache: 'no-store' });
         if (r.status === 404) { setStatus('notfound'); useCache(); return; }
+        if (r.status === 403) { let j = {}; try { j = await r.json(); } catch (e) { /* */ } L.disabled = j; setStatus('disabled'); useCache(); return; }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         setStatus('online');
         const metaSig = JSON.stringify(j.media || {});
         const c = M.readCache(id);
-        if (first || j.rev !== rev || !c || JSON.stringify((c.meta || {}).media || {}) !== metaSig) {
+        if (first || j.rev !== rev || !c || JSON.stringify((c.meta || {}).media || {}) !== metaSig || !!(c.meta || {}).pending !== !!j.pending) {
           first = false; rev = j.rev;
-          const meta = { name: j.name, media: j.media || {}, id };
+          const meta = { name: j.name, media: j.media || {}, id, pending: !!j.pending };
           M.writeCache(id, { rev, settings: j.settings, meta });
           emit(j.settings, meta);
         }
@@ -506,6 +520,7 @@
     return {
       on,
       get status() { return status; },
+      get disabledInfo() { return L.disabled || {}; },
       start() { refresh(); timer = setInterval(refresh, 60000); }
     };
   };
@@ -528,7 +543,7 @@
       setPin(p) { pin = p; },
       async login(p) { pin = p; return api('POST', `/api/screens/${id}/login`, { pin: p }); },
       async fetch() { const r = await fetch(M.API + `/api/screens/${id}`, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); },
-      async save(settings, name) { return api('PUT', `/api/screens/${id}/settings`, { settings, name }); },
+      async save(settings, name, owner) { return api('PUT', `/api/screens/${id}/settings`, { settings, name, owner }); },
       async command(type, extra) { return api('POST', `/api/screens/${id}/command`, Object.assign({ type }, extra || {})); },
       async changePin(newPin) { return api('POST', `/api/screens/${id}/pin`, { newPin }); },
       async upload(name, file) { return api('PUT', `/api/screens/${id}/media/${name}`, file, file.type || 'audio/mpeg'); },

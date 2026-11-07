@@ -99,13 +99,23 @@ Open `public/index.html` directly, or put the `public` folder on any static host
 
 ---
 
-## Giving it to others
+## Giving it to others: self-registration + super admin
 
-- **Same server:** log in, then Settings › *Share & screens* › **Create**. Each masjid gets its own **Screen ID + PIN** and its own links:
-  `…/?s=masjid-al-huda-1a2b` (TV) and `…/admin?s=masjid-al-huda-1a2b` (phone).
-- **Forgot a PIN?** In Railway › Variables add `RESET_PIN` = `main:654321` (screen-id:new-pin, comma-separate several), let it redeploy, log in, then delete the variable.
-- **Their own server:** give them this folder. It needs no accounts and no fees.
-- Server variables: `PORT` (8080), `DATA_DIR` (./data), `DEFAULT_PIN` (1234 locally, random on cloud), `ALLOW_NEW_SCREENS` (`admins` default / `1` / `0`), `ALLOWED_ORIGINS` (default any).
+| Page | Who | What |
+|---|---|---|
+| `/` or `/register` | Anyone | Landing page + **Register your masjid or home** (name, city, mobile, PIN). They get their own TV link, phone link and QR codes straight away. |
+| `/?s=<screen-id>` | The TV | That masjid's own screen. The bare `/` link no longer opens any screen. |
+| `/admin` | Masjid / home admin | Log in with **mobile number + PIN** (or screen ID + PIN). One mobile can own several screens. |
+| `/super` | **You only** | Every registered masjid and home: contact, mobile/WhatsApp, TV online/offline, last seen. Approve, disable/enable, reset PIN, delete, export CSV. |
+
+**Server variables (Railway › Variables):**
+- `SUPER_ADMIN_PASSWORD`: **required** to switch on `/super` (at least 8 characters).
+- `SUPPORT_CONTACT`: e.g. `+91 98xxx xxxxx`. Shown on "Forgot PIN?" and on disabled screens.
+- `REGISTRATION`: `open` (default; new screens work at once), `approval` (wait until you approve them in `/super`), or `closed`.
+- `RESET_PIN` = `screen-id:newpin`: emergency reset. It's easier to use **Reset PIN** in `/super`.
+- `ALLOWED_ORIGINS`, `DEFAULT_PIN`, `DATA_DIR`, `PORT`: as described above.
+
+Spam protection: a hidden form field, a minimum time to fill in the form, 5 registrations per network per day, and lock-out after 8 wrong PINs.
 
 ## Tips
 

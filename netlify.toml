@@ -12,6 +12,22 @@
   status = 200
 
 [[redirects]]
+  from = "/register"
+  to = "/welcome.html"
+  status = 200
+
+[[redirects]]
+  from = "/super"
+  to = "/super.html"
+  status = 200
+
+[[headers]]
+  for = "/super.html"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+
+[[redirects]]
   from = "/tv"
   to = "/index.html"
   status = 200

@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -30,6 +30,13 @@ const ON_CLOUD = !!(process.env.RAILWAY_ENVIRONMENT || process.env.RENDER || pro
 // On a public cloud host never fall back to 1234: use DEFAULT_PIN or a random one printed in the logs.
 const DEFAULT_PIN = process.env.DEFAULT_PIN || (ON_CLOUD ? String(crypto.randomInt(100000, 999999)) : '1234');
 // ALLOWED_ORIGINS: comma list of sites allowed to call the API from a browser (e.g. https://miqat.netlify.app). Default: any.
+// Public self-registration: 'open' (default) = new screens work at once, 'approval' = wait for super admin, 'closed' = off.
+const REGISTRATION = (process.env.REGISTRATION || 'open').toLowerCase();
+// Super-admin dashboard (/super) is enabled only when SUPER_ADMIN_PASSWORD is set (min 8 chars).
+const SUPER_PASS = String(process.env.SUPER_ADMIN_PASSWORD || '').length >= 8 ? String(process.env.SUPER_ADMIN_PASSWORD) : '';
+if (process.env.SUPER_ADMIN_PASSWORD && !SUPER_PASS) console.log('  SUPER_ADMIN_PASSWORD must be at least 8 characters — super admin disabled.');
+const SUPER_SECRET = crypto.createHash('sha256').update('meeqat-super:' + SUPER_PASS + ':' + (process.env.SUPER_SECRET || DATA)).digest();
+const SUPPORT = String(process.env.SUPPORT_CONTACT || '').slice(0, 120); // shown on disabled screens / forgot PIN
 const ALLOWED = (process.env.ALLOWED_ORIGINS || '*').split(',').map((x) => x.trim().replace(/\/+$/, '')).filter(Boolean);
 const MAX_SETTINGS = 512 * 1024;      // 512 KB of JSON
 const MAX_AUDIO = 15 * 1024 * 1024;   // 15 MB per audio file
@@ -170,14 +177,63 @@ function lanAddresses() {
 }
 function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'screen'; }
 function publicScreen(id, s) {
-  return { id, name: s.name, rev: s.rev, updated: s.updated, settings: s.settings, pinIsDefault: !!s.pinIsDefault, media: mediaMeta(id) };
+  return { id, name: s.name, rev: s.rev, updated: s.updated, settings: s.settings, pinIsDefault: !!s.pinIsDefault, pending: !!s.pending, media: mediaMeta(id), owner: ownerPublic(s.owner) };
+}
+function ownerPublic(o) { return o ? { type: o.type, city: o.city, contact: o.contact, mobile: o.mobile, email: o.email } : null; }
+const digits = (x) => String(x || '').replace(/\D/g, '');
+const tail = (x) => digits(x).slice(-9);
+function cleanOwner(b, old) {
+  const o = Object.assign({}, old || {});
+  if (b.type !== undefined) o.type = b.type === 'home' ? 'home' : 'masjid';
+  if (b.city !== undefined) o.city = String(b.city || '').slice(0, 80);
+  if (b.contact !== undefined) o.contact = String(b.contact || '').slice(0, 80);
+  if (b.mobile !== undefined) o.mobile = String(b.mobile || '').replace(/[^\d+ -]/g, '').slice(0, 20);
+  if (b.email !== undefined) o.email = String(b.email || '').slice(0, 120);
+  return o;
+}
+function allScreens() {
+  return fs.readdirSync(SCREENS).filter((f) => f.endsWith('.json')).map((f) => load(f.slice(0, -5))).filter(Boolean);
+}
+/* last time a TV fetched or streamed — persisted at most every 10 min */
+const seen = new Map();
+function touch(id, scr) {
+  const now = Date.now(); seen.set(id, now);
+  if (scr && (!scr.lastSeen || now - scr.lastSeen > 600000)) { scr.lastSeen = now; save(id, scr); }
+}
+/* registration rate limit: 5 per IP per day */
+const regs = new Map();
+function regAllowed(req) {
+  const ip = ipOf(req), now = Date.now();
+  const list = (regs.get(ip) || []).filter((t) => now - t < 86400000);
+  regs.set(ip, list);
+  return list.length < 5;
+}
+/* super-admin tokens: HMAC-signed, 12 h */
+function superToken() {
+  const exp = Date.now() + 12 * 3600 * 1000;
+  return exp + '.' + crypto.createHmac('sha256', SUPER_SECRET).update(String(exp)).digest('hex');
+}
+function superOk(req) {
+  if (!SUPER_PASS) return false;
+  const [exp, sig] = String(req.headers['x-super'] || '').split('.');
+  if (!exp || !sig || +exp < Date.now()) return false;
+  const good = crypto.createHmac('sha256', SUPER_SECRET).update(exp).digest('hex');
+  return sig.length === good.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(good));
+}
+function deleteScreen(id) {
+  cache.delete(id);
+  try { fs.unlinkSync(screenFile(id)); } catch (e) { /* */ }
+  fs.rmSync(path.join(MEDIA, id), { recursive: true, force: true });
 }
 
 /* ---------- Static files ---------- */
 function serveStatic(req, res, urlPath) {
   let p = urlPath;
-  if (p === '/' || p === '/tv' || p === '/display') p = '/index.html';
+  if (p === '/tv' || p === '/display') p = '/index.html';
+  else if (p === '/') p = '/index.html';
   else if (p === '/admin' || p === '/admin/' || p === '/control') p = '/admin.html';
+  else if (p === '/register' || p === '/welcome' || p === '/start') p = '/welcome.html';
+  else if (p === '/super' || p === '/super/') p = '/super.html';
   const file = path.normalize(path.join(PUB, decodeURIComponent(p)));
   if (!file.startsWith(PUB)) return send(res, 403, 'Forbidden');
   fs.stat(file, (err, st) => {
@@ -214,11 +270,100 @@ async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
   if (req.method === 'OPTIONS') {
-    return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,X-Pin,X-Screen', 'Access-Control-Max-Age': '86400' });
+    return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,X-Pin,X-Screen,X-Super', 'Access-Control-Max-Age': '86400' });
   }
 
-  if (p === '/api/info' || p === '/healthz') return json(res, 200, { app: 'Miqat', version: VERSION, now: Date.now(), port: PORT, lan: ON_CLOUD ? [] : lanAddresses(), allowNew: ALLOW_NEW });
+  if (p === '/api/info' || p === '/healthz') return json(res, 200, { app: 'Miqat', version: VERSION, now: Date.now(), port: PORT, lan: ON_CLOUD ? [] : lanAddresses(), allowNew: ALLOW_NEW, registration: REGISTRATION, support: SUPPORT, superEnabled: !!SUPER_PASS });
   if (p === '/api/time') return json(res, 200, { now: Date.now() });
+
+  /* ----- public self-registration ----- */
+  if (p === '/api/register' && req.method === 'POST') {
+    if (REGISTRATION === 'closed') return json(res, 403, { error: 'Registration is closed. Please contact the administrator.' + (SUPPORT ? ' ' + SUPPORT : '') });
+    const b = await readJson(req, MAX_SETTINGS);
+    if (b.website) return json(res, 400, { error: 'Rejected' });                       // honeypot
+    if (!(+b.elapsed > 2500)) return json(res, 400, { error: 'Please take a moment to fill in the form.' });
+    if (!regAllowed(req)) return json(res, 429, { error: 'Too many registrations from this network today. Try again tomorrow.' });
+    const name = String(b.name || '').trim();
+    if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'Please enter the masjid / home name.' });
+    if (digits(b.mobile).length < 8 || digits(b.mobile).length > 15) return json(res, 400, { error: 'Please enter a valid mobile number.' });
+    if (!validPin(b.pin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' });
+    if (b.settings && JSON.stringify(b.settings).length > MAX_SETTINGS) return json(res, 400, { error: 'Settings too large' });
+    let id; do { id = slug(name) + '-' + crypto.randomBytes(2).toString('hex'); } while (load(id));
+    const scr = {
+      id, name: name.slice(0, 80), pin: hashPin(b.pin), pinIsDefault: false,
+      settings: b.settings && typeof b.settings === 'object' ? b.settings : null,
+      owner: cleanOwner(b, {}), pending: REGISTRATION === 'approval', disabled: false,
+      rev: 1, created: Date.now(), updated: Date.now(), registeredFrom: ipOf(req)
+    };
+    save(id, scr);
+    regs.get(ipOf(req)).push(Date.now());
+    console.log(`  + registered ${scr.owner.type} "${scr.name}" (${id}) ${scr.owner.city || ''}`);
+    return json(res, 201, { ok: true, id, pending: scr.pending });
+  }
+
+  /* ----- log in with mobile number + PIN (finds the user's screens) ----- */
+  if (p === '/api/find' && req.method === 'POST') {
+    if (locked(req)) return json(res, 429, { error: 'Too many wrong tries. Try again in 5 minutes.' });
+    const b = await readJson(req);
+    const t = tail(b.mobile);
+    if (t.length < 8 || !validPin(b.pin)) { noteFail(req); return json(res, 400, { error: 'Enter your mobile number and PIN.' }); }
+    const found = allScreens().filter((x) => x.owner && tail(x.owner.mobile) === t && checkPin(b.pin, x.pin));
+    if (!found.length) { noteFail(req); return json(res, 401, { error: 'No screen found for this mobile number and PIN.' + (SUPPORT ? ' Help: ' + SUPPORT : '') }); }
+    noteOk(req);
+    return json(res, 200, { ok: true, screens: found.map((x) => ({ id: x.id, name: x.name, city: x.owner.city, type: x.owner.type, disabled: !!x.disabled, pending: !!x.pending })) });
+  }
+
+  /* ----- super admin ----- */
+  if (p.startsWith('/api/super/')) {
+    if (!SUPER_PASS) return json(res, 503, { error: 'Super admin is not enabled. Set SUPER_ADMIN_PASSWORD on the server.' });
+    if (p === '/api/super/login' && req.method === 'POST') {
+      if (locked(req)) return json(res, 429, { error: 'Too many wrong tries. Try again in 5 minutes.' });
+      const b = await readJson(req);
+      const a = crypto.createHash('sha256').update(String(b.password || '')).digest();
+      const c = crypto.createHash('sha256').update(SUPER_PASS).digest();
+      if (!crypto.timingSafeEqual(a, c)) { noteFail(req); return json(res, 401, { error: 'Wrong password' }); }
+      noteOk(req);
+      return json(res, 200, { ok: true, token: superToken() });
+    }
+    if (!superOk(req)) return json(res, 401, { error: 'Please log in again.' });
+    if (p === '/api/super/screens' && req.method === 'GET') {
+      const list = allScreens().map((x) => {
+        const st = x.settings || {}, loc = st.location || {}, gen = st.general || {};
+        return {
+          id: x.id, name: x.name, displayName: gen.masjidName || x.name, type: (x.owner && x.owner.type) || 'masjid',
+          city: (x.owner && x.owner.city) || loc.city || '', contact: x.owner ? x.owner.contact : '', mobile: x.owner ? x.owner.mobile : '', email: x.owner ? x.owner.email : '',
+          created: x.created, updated: x.updated, rev: x.rev, lastSeen: Math.max(seen.get(x.id) || 0, x.lastSeen || 0) || null,
+          live: (clients.get(x.id) || new Set()).size, disabled: !!x.disabled, pending: !!x.pending, pinIsDefault: !!x.pinIsDefault,
+          lang: gen.lang || 'en', lat: loc.lat, lng: loc.lng
+        };
+      }).sort((a, b) => (b.created || 0) - (a.created || 0));
+      return json(res, 200, { ok: true, now: Date.now(), registration: REGISTRATION, screens: list });
+    }
+    const sm = /^\/api\/super\/screens\/([a-z0-9-]+)$/.exec(p);
+    if (sm) {
+      const id = sm[1], scr = load(id);
+      if (!scr) return json(res, 404, { error: 'Not found' });
+      if (req.method === 'DELETE') {
+        broadcast(id, 'settings', { rev: -1 });
+        deleteScreen(id);
+        console.log(`  - super admin deleted "${scr.name}" (${id})`);
+        return json(res, 200, { ok: true });
+      }
+      if (req.method === 'POST') {
+        const b = await readJson(req);
+        if (b.action === 'disable') scr.disabled = true;
+        else if (b.action === 'enable') scr.disabled = false;
+        else if (b.action === 'approve') scr.pending = false;
+        else if (b.action === 'resetPin') { if (!validPin(b.pin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' }); scr.pin = hashPin(b.pin); scr.pinIsDefault = false; delete scr.firstPin; }
+        else if (b.action === 'owner') scr.owner = cleanOwner(b.owner || {}, scr.owner);
+        else return json(res, 400, { error: 'Unknown action' });
+        scr.rev = (scr.rev || 0) + 1; scr.updated = Date.now(); save(id, scr);
+        broadcast(id, 'settings', { rev: scr.rev });
+        return json(res, 200, { ok: true });
+      }
+    }
+    return json(res, 404, { error: 'Not found' });
+  }
 
   if (p === '/api/screens' && req.method === 'POST') {
     if (ALLOW_NEW === '0') return json(res, 403, { error: 'Creating new screens is disabled on this server.' });
@@ -230,7 +375,7 @@ async function handle(req, res) {
     const b = await readJson(req);
     if (!validPin(b.pin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' });
     let id; do { id = slug(b.name) + '-' + crypto.randomBytes(2).toString('hex'); } while (load(id));
-    const scr = { id, name: String(b.name || 'New screen').slice(0, 80), pin: hashPin(b.pin), pinIsDefault: false, settings: b.settings || null, rev: 1, created: Date.now(), updated: Date.now() };
+    const scr = { id, name: String(b.name || 'New screen').slice(0, 80), pin: hashPin(b.pin), pinIsDefault: false, settings: b.settings || null, owner: cleanOwner(b.owner || {}, {}), rev: 1, created: Date.now(), updated: Date.now() };
     save(id, scr);
     return json(res, 201, { ok: true, id });
   }
@@ -243,14 +388,16 @@ async function handle(req, res) {
     const [, id, action, sub] = m;
     const scr = load(id);
     if (!scr) return json(res, 404, { error: 'Screen not found: ' + id });
+    if (scr.disabled && action !== 'events') return json(res, 403, { error: 'This screen has been disabled by the administrator.' + (SUPPORT ? ' Contact: ' + SUPPORT : ''), disabled: true, support: SUPPORT });
 
-    if (!action && req.method === 'GET') return json(res, 200, publicScreen(id, scr));
+    if (!action && req.method === 'GET') { touch(id, scr); return json(res, 200, publicScreen(id, scr)); }
 
     if (action === 'events' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': corsOrigin(req), 'Vary': 'Origin' });
       res.write(`retry: 5000\nevent: hello\ndata: ${JSON.stringify({ rev: scr.rev, now: Date.now() })}\n\n`);
       if (!clients.has(id)) clients.set(id, new Set());
       clients.get(id).add(res);
+      touch(id, scr);
       req.on('close', () => { const s = clients.get(id); if (s) s.delete(res); });
       return;
     }
@@ -269,6 +416,7 @@ async function handle(req, res) {
       if (!b || typeof b.settings !== 'object') return json(res, 400, { error: 'Missing settings' });
       scr.settings = b.settings;
       if (b.name) scr.name = String(b.name).slice(0, 80);
+      if (b.owner && typeof b.owner === 'object') scr.owner = cleanOwner(b.owner, scr.owner);
       scr.rev = (scr.rev || 0) + 1; scr.updated = Date.now();
       save(id, scr);
       const viewers = broadcast(id, 'settings', { rev: scr.rev });
@@ -340,6 +488,8 @@ server.listen(PORT, HOST, () => {
   const main = load('main');
   if (main && main.pinIsDefault) console.log(`\n  PIN for screen "main" is ${main.firstPin || DEFAULT_PIN} — change it in Admin › Settings.`);
   if (ON_CLOUD && !process.env.DATA_DIR) console.log('  WARNING: DATA_DIR is not set — attach a volume (e.g. /data) or settings are lost on redeploy.');
+  console.log(`  Register    : /register   ·  Super admin: /super ${SUPER_PASS ? '(enabled)' : '(set SUPER_ADMIN_PASSWORD to enable)'}`);
+  console.log(`  Registration: ${REGISTRATION}`);
   console.log(`  Data folder : ${DATA}\n${line}\n`);
 });
 

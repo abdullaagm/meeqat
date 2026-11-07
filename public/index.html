@@ -279,7 +279,8 @@ body.nocursor{cursor:none}
 (function () {
   'use strict';
   const M = Miqat, $ = (i) => document.getElementById(i);
-  const ID = M.screenId();
+  const EXPLICIT = M.explicitScreenId();
+  const ID = EXPLICIT || 'main';
   const store = M.createDisplayStore(ID);
   const stage = $('stage');
 
@@ -570,6 +571,8 @@ body.nocursor{cursor:none}
 
   /* ---------------- overlays ---------------- */
   function overlayState(now) {
+    if (store.status === 'disabled') return { t: 'disabled' };
+    if (meta.pending) return { t: 'pending' };
     if (S.live.blank) return { t: 'blank' };
     if (forced && now < forced.until) return forced;
     if (forced && now >= forced.until) forced = null;
@@ -627,6 +630,12 @@ body.nocursor{cursor:none}
         return `<div class="calm">${ICON.mic}<div class="s1">${T.khutbahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الخطبة — الرجاء الإنصات</div>' : ''}<div class="s3">${T.listenSilently} · ${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
       case 'urgent':
         return `<div class="ov-card glass"><div class="ov-tag">${T.notice}</div><div class="ov-msg">${M.esc(S.live.urgent)}</div></div>`;
+      case 'disabled': {
+        const info = store.disabledInfo;
+        return `<div class="ov-card glass"><div class="ov-tag">Meeqat</div><div class="ov-msg">This screen has been disabled.</div>${info.support ? `<div class="ov-sub">Contact: <b>${M.esc(info.support)}</b></div>` : ''}<div class="ov-sub" style="font-size:2.4vmin">${M.esc(ID)}</div></div>`;
+      }
+      case 'pending':
+        return `<div class="ov-card glass"><div class="ov-tag">Meeqat</div><div class="ov-msg">Waiting for approval</div><div class="ov-sub">${M.esc(S.general.masjidName || '')} · ${M.esc(ID)}</div><div class="ov-sub" style="font-size:2.6vmin">This screen will start automatically once the administrator approves it.</div></div>`;
       case 'identify':
         return `<div class="ov-card glass"><div class="ov-tag">Screen ID</div><div class="ov-msg" style="font-size:12vmin">${M.esc(ID)}</div><div class="ov-sub">${M.esc(location.host || 'local')}</div></div>`;
       default: return '';
@@ -764,8 +773,12 @@ body.nocursor{cursor:none}
 
   layout();
   ensureCtx();
-  store.start();
   tick(true);
+  (async () => {
+    // A bare link on a Meeqat server shows the welcome / registration page instead of someone's screen.
+    if (!EXPLICIT && (await M.probe()) === 'yes') { location.replace('welcome.html'); return; }
+    store.start();
+  })();
 })();
 </script>
 </body>
