@@ -96,6 +96,18 @@ if (!load('main')) {
   save('main', { id: 'main', name: 'Main screen', pin: hashPin(DEFAULT_PIN), pinIsDefault: true, firstPin: process.env.DEFAULT_PIN ? undefined : DEFAULT_PIN, settings: null, rev: 0, created: Date.now(), updated: Date.now() });
 }
 
+/* ---------- Emergency PIN reset ----------
+ * Set RESET_PIN="main:654321" (or several: "main:654321,masjid-huda-8e3a:1111") in the host's
+ * environment variables and restart. The PIN is reset on boot; remove the variable afterwards. */
+for (const pair of String(process.env.RESET_PIN || '').split(',').map((x) => x.trim()).filter(Boolean)) {
+  const [rid, rpin] = pair.split(':').map((x) => (x || '').trim());
+  const scr = load(rid);
+  if (!scr) { console.log(`  RESET_PIN: screen "${rid}" not found`); continue; }
+  if (!validPin(rpin)) { console.log(`  RESET_PIN: PIN for "${rid}" must be 4–12 digits`); continue; }
+  scr.pin = hashPin(rpin); scr.pinIsDefault = false; delete scr.firstPin; save(rid, scr);
+  console.log(`  RESET_PIN: PIN for screen "${rid}" has been reset. Remove RESET_PIN from the variables now.`);
+}
+
 /* ---------- Live push (Server-Sent Events) ---------- */
 const clients = new Map(); // id -> Set<res>
 function broadcast(id, event, data) {

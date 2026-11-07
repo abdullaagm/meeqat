@@ -103,6 +103,7 @@ Open `public/index.html` directly, or put the `public` folder on any static host
 
 - **Same server:** log in, then Settings › *Share & screens* › **Create**. Each masjid gets its own **Screen ID + PIN** and its own links:
   `…/?s=masjid-al-huda-1a2b` (TV) and `…/admin?s=masjid-al-huda-1a2b` (phone).
+- **Forgot a PIN?** In Railway › Variables add `RESET_PIN` = `main:654321` (screen-id:new-pin, comma-separate several), let it redeploy, log in, then delete the variable.
 - **Their own server:** give them this folder. It needs no accounts and no fees.
 - Server variables: `PORT` (8080), `DATA_DIR` (./data), `DEFAULT_PIN` (1234 locally, random on cloud), `ALLOW_NEW_SCREENS` (`admins` default / `1` / `0`), `ALLOWED_ORIGINS` (default any).
 
