@@ -167,6 +167,12 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
       <p class="sub" style="margin-bottom:22px">The free Meeqat TV app starts by itself when the TV is switched on, keeps the screen awake, plays the adhan without pressing anything, and reconnects on its own after a power cut.</p>
       <div class="cta" style="margin-top:0"><a class="btn pri" id="apkBtn" href="app">⬇ Download Meeqat TV (.apk)</a><a class="btn" href="pair.html">Use in any TV browser</a></div>
       <p class="note" id="apkInfo">For Android TV boxes, Google TV, Fire TV Stick and Android tablets.</p>
+      <div class="glass" style="padding:18px 20px;margin-top:22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+        <img src="img/admin-icon.png" alt="" width="56" height="56" style="border-radius:14px">
+        <div style="flex:1;min-width:200px"><b style="font-size:18px">Meeqat Admin: phone app</b><p class="note" style="margin:2px 0 0" id="adminInfo">Control your masjid screen from your Android phone. Scan the TV's QR to link it. Updates install with one tap.</p></div>
+        <a class="btn" id="adminBtn" href="admin-app">⬇ Get the Admin app</a>
+      </div>
+      <p class="note">iPhone: open <b>/admin</b> in Safari › Share › <b>Add to Home Screen</b>.</p>
     </div>
     <div>
       <div class="steps" style="grid-template-columns:1fr;gap:12px">
@@ -316,6 +322,9 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 
   $('apkShort').textContent = location.host + '/app';
   fetch('downloads/app.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+    const ad = j && j.apps && j.apps.admin;
+    if (ad) $('adminInfo').textContent = `Version ${ad.version} · ${(ad.size / 1048576).toFixed(1)} MB · Android 5+. Control your masjid screen, scan the TV's QR to link it, one-tap updates.`;
+    else { $('adminBtn').textContent = 'Coming soon'; $('adminBtn').removeAttribute('href'); }
     if (j && j.version) $('apkInfo').textContent = `Version ${j.version} · ${(j.size / 1048576).toFixed(1)} MB · for Android TV, Google TV, Fire TV Stick and Android tablets (Android 5+).`;
     else { $('apkBtn').classList.remove('pri'); $('apkBtn').textContent = 'TV app coming soon'; $('apkBtn').removeAttribute('href'); }
   }).catch(() => {});

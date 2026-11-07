@@ -1,5 +1,5 @@
 /* Miqat service worker — keeps the display working when the internet drops (HTTPS / localhost only). */
-const CACHE = 'miqat-v1.4.0';
+const CACHE = 'miqat-v1.6.0';
 const SHELL = ['./', 'index.html', 'admin.html', 'shared.js', 'config.js', 'places.js', 'manifest.webmanifest', 'icon.svg',
   'vendor/adhan.min.js', 'vendor/qrcode.js',
   'fonts/outfit-latin-300-normal.woff2', 'fonts/outfit-latin-400-normal.woff2', 'fonts/outfit-latin-500-normal.woff2',

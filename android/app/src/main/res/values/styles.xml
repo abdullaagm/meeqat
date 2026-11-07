@@ -1,8 +1,15 @@
 <resources>
     <color name="bg">#FF050A1C</color>
+    <color name="bar">#FF070B1D</color>
     <style name="AppTheme" parent="android:Theme.Black.NoTitleBar.Fullscreen">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
+    </style>
+    <style name="PhoneTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bar</item>
+        <item name="android:statusBarColor">@color/bar</item>
+        <item name="android:navigationBarColor">@color/bar</item>
+        <item name="android:colorAccent">#FFF3C96B</item>
     </style>
 </resources>

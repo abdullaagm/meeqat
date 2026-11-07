@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -285,7 +285,7 @@ async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
   if (req.method === 'OPTIONS') {
-    return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,X-Pin,X-Screen,X-Super', 'Access-Control-Max-Age': '86400' });
+    return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type,X-Pin,X-Screen,X-Super', 'Access-Control-Expose-Headers': 'Content-Disposition', 'Access-Control-Max-Age': '86400' });
   }
 
   if (p === '/api/info' || p === '/healthz') return json(res, 200, { app: 'Miqat', version: VERSION, now: Date.now(), port: PORT, lan: ON_CLOUD ? [] : lanAddresses(), allowNew: ALLOW_NEW, registration: REGISTRATION, support: SUPPORT, superEnabled: !!SUPER_PASS });
@@ -341,6 +341,14 @@ async function handle(req, res) {
       return json(res, 200, { ok: true, token: superToken() });
     }
     if (!superOk(req)) return json(res, 401, { error: 'Please log in again.' });
+    /* the Super Admin app is never public: only a logged-in super admin can download it */
+    if (p === '/api/super/app' && req.method === 'GET') {
+      const f = path.join(ROOT, 'private', 'meeqat-super.apk');
+      if (!fs.existsSync(f)) return json(res, 404, { error: 'The Super Admin app has not been built yet.' });
+      const st = fs.statSync(f);
+      res.writeHead(200, { 'Content-Type': MIME['.apk'], 'Content-Length': st.size, 'Content-Disposition': 'attachment; filename="meeqat-super.apk"', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': corsOrigin(req) });
+      return fs.createReadStream(f).pipe(res);
+    }
     if (p === '/api/super/library' && req.method === 'GET') {
       const used = {};
       for (const x of allScreens()) { const a = (((x.settings || {}).adhan || {}).audio) || {}; for (const k of ['main', 'fajr', 'iqamah']) if (a[k]) used[a[k]] = (used[a[k]] || 0) + 1; }
@@ -432,10 +440,11 @@ async function handle(req, res) {
   }
 
   /* ----- short link for the TV app download (easy to type in the Downloader app) ----- */
-  if (p === '/app' || p === '/apk' || p === '/tvapp') {
-    const f = path.join(PUB, 'downloads', 'meeqat-tv.apk');
-    if (!fs.existsSync(f)) return send(res, 404, 'The Meeqat TV app is not built yet.', { 'Content-Type': 'text/plain' });
-    return send(res, 302, '', { Location: '/downloads/meeqat-tv.apk' });
+  const APK_LINKS = { '/app': 'meeqat-tv.apk', '/apk': 'meeqat-tv.apk', '/tvapp': 'meeqat-tv.apk', '/tv-app': 'meeqat-tv.apk', '/admin-app': 'meeqat-admin.apk', '/adminapp': 'meeqat-admin.apk' };
+  if (APK_LINKS[p]) {
+    const f = path.join(PUB, 'downloads', APK_LINKS[p]);
+    if (!fs.existsSync(f)) return send(res, 404, 'This Meeqat app is not built yet.', { 'Content-Type': 'text/plain' });
+    return send(res, 302, '', { Location: '/downloads/' + APK_LINKS[p] });
   }
 
   /* ----- TV pairing ----- */

@@ -2,6 +2,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY server.js package.json ./
 COPY public ./public
+COPY private ./private
 ENV NODE_ENV=production PORT=8080 DATA_DIR=/data CLOUD=1
 RUN mkdir -p /data
 EXPOSE 8080

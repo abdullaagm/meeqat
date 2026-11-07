@@ -8,7 +8,7 @@ android {
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.winocle.meeqat.tv'
+        applicationId 'com.winocle.meeqat'
         minSdk 21
         targetSdk 34
         versionCode runNo
@@ -16,6 +16,45 @@ android {
         buildConfigField 'String', 'SERVER_URL', "\"${server}\""
     }
     buildFeatures { buildConfig true }
+
+    // One project, three apps. They install side by side.
+    flavorDimensions 'app'
+    productFlavors {
+        tv {
+            dimension 'app'
+            applicationIdSuffix '.tv'            // = com.winocle.meeqat.tv (same as the first release)
+            resValue 'string', 'app_name', 'Meeqat TV'
+            buildConfigField 'String', 'KIND', '"tv"'
+            buildConfigField 'String', 'START_PATH', '"/tv?app=1"'
+            buildConfigField 'boolean', 'LOCK', 'false'
+        }
+        admin {
+            dimension 'app'
+            applicationIdSuffix '.admin'
+            resValue 'string', 'app_name', 'Meeqat Admin'
+            buildConfigField 'String', 'KIND', '"admin"'
+            buildConfigField 'String', 'START_PATH', '"/admin?app=1"'
+            buildConfigField 'boolean', 'LOCK', 'false'
+        }
+        superadmin {
+            dimension 'app'
+            applicationIdSuffix '.superadmin'
+            resValue 'string', 'app_name', 'Meeqat Super'
+            buildConfigField 'String', 'KIND', '"super"'
+            buildConfigField 'String', 'START_PATH', '"/super?app=1"'
+            buildConfigField 'boolean', 'LOCK', 'true'
+        }
+    }
+    sourceSets {
+        admin {
+            java.srcDirs += 'src/phone/java'
+            manifest.srcFile 'src/phone/AndroidManifest.xml'
+        }
+        superadmin {
+            java.srcDirs += 'src/phone/java'
+            manifest.srcFile 'src/phone/AndroidManifest.xml'
+        }
+    }
 
     signingConfigs {
         release {

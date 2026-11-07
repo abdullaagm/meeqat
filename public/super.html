@@ -103,6 +103,7 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
     <div class="t"><h1>Meeqat · Super admin</h1><small id="sub">Loading…</small></div>
     <button class="btn" id="refresh">↻ Refresh</button>
     <button class="btn" id="csv">⬇ Export CSV</button>
+    <button class="btn" id="appBtn">📱 Super app</button>
     <a class="btn" href="welcome.html" target="_blank">＋ Register new</a>
     <button class="btn" id="logout">Log out</button>
   </header>
@@ -165,6 +166,7 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
     try {
       const j = await api('POST', '/api/super/login', { password: $('pw').value });
       TOKEN = j.token; try { sessionStorage.setItem('meeqat:super', TOKEN); } catch (e) { /* */ }
+      if (M.inApp() && MeeqatApp.setSuperToken) MeeqatApp.setSuperToken(TOKEN);
       $('pw').value = ''; show(); load();
     } catch (e) { $('lerr').textContent = e.message; }
   };
@@ -269,9 +271,7 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
     const cols = ['id', 'displayName', 'type', 'city', 'contact', 'mobile', 'email', 'created', 'lastSeen', 'live', 'pending', 'disabled', 'lang', 'lat', 'lng'];
     const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const rows = [cols.join(',')].concat(DATA.map((x) => cols.map((c) => q(c === 'created' || c === 'lastSeen' ? (x[c] ? new Date(x[c]).toISOString() : '') : x[c])).join(',')));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(['﻿' + rows.join('\n')], { type: 'text/csv' }));
-    a.download = `meeqat-screens-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    M.saveText(`meeqat-screens-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv', '\ufeff' + rows.join('\n'));
   };
 
   /* ---------- adhan library ---------- */
@@ -335,6 +335,29 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
       });
     }
   });
+
+  /* ---------- Super Admin app: private download / in-app settings ---------- */
+  $('appBtn').onclick = async () => {
+    if (M.inApp()) {
+      const ai = M.appInfo() || {};
+      modal(`<h3>Meeqat Super app</h3><p>Version ${esc(ai.version || '')}. Website changes appear automatically.</p>
+        ${ai.lockAvailable ? `<label style="display:flex;gap:10px;align-items:center;margin-bottom:14px"><input type="checkbox" id="mLock" ${ai.lock ? 'checked' : ''} style="width:auto"> Fingerprint / face lock</label>` : ''}
+        <div class="acts"><button class="btn pri" data-m="ok">Save</button><button class="btn" id="mUpd" type="button">⟳ Check for updates</button><button class="btn" data-m="x">Close</button></div>`, () => {
+        const l = $('mLock'); if (l) MeeqatApp.setLock(l.checked); toast('Saved');
+      });
+      $('mUpd').onclick = () => MeeqatApp.checkUpdate();
+      return;
+    }
+    toast('Downloading Super app…');
+    try {
+      const r = await fetch(M.API + '/api/super/app', { headers: { 'X-Super': TOKEN } });
+      if (!r.ok) { let j = {}; try { j = await r.json(); } catch (e) { /* */ } throw new Error(j.error || 'HTTP ' + r.status); }
+      const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'meeqat-super.apk';
+      document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
+      modal(`<h3>Install on your phone</h3><p>Open <b>meeqat-super.apk</b> from your Downloads and tap Install. If Android asks, allow "unknown apps" for your browser. Log in once; after that the app opens with your fingerprint or face.</p><p>Keep this file private. It only opens your dashboard and still needs your password.</p><div class="acts"><button class="btn pri" data-m="x">OK</button></div>`, () => {});
+    } catch (e) { toast(e.message); }
+  };
+  if (M.inApp() && TOKEN && MeeqatApp.setSuperToken) MeeqatApp.setSuperToken(TOKEN);
 
   if (TOKEN) { show(); load(); }
 })();

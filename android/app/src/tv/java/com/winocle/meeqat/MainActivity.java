@@ -59,7 +59,7 @@ public class MainActivity extends Activity {
         return s;
     }
 
-    private String startUrl() { return server() + "/tv?app=1"; }
+    private String startUrl() { return server() + BuildConfig.START_PATH; }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +76,7 @@ public class MainActivity extends Activity {
         loadStart();
         handler.postDelayed(health, HEALTH_MS);
         handler.postDelayed(this::maybeAskAutoStart, 6000);
+        handler.postDelayed(updateCheck, 60_000);   // first check a minute after start, then every 6 h
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -157,6 +158,13 @@ public class MainActivity extends Activity {
         }
     };
 
+    private final Runnable updateCheck = new Runnable() {
+        @Override public void run() {
+            Updater.check(MainActivity.this, server(), true, null);
+            handler.postDelayed(this, 6 * 3600_000L);
+        }
+    };
+
     @SuppressWarnings("deprecation")
     private boolean online() {
         try {
@@ -203,6 +211,7 @@ public class MainActivity extends Activity {
                 "Link to a different masjid (show pairing code)",
                 "Start automatically when TV turns on",
                 "Change server address",
+                "Check for updates",
                 "About",
                 "Exit Meeqat TV"
         };
@@ -214,8 +223,9 @@ public class MainActivity extends Activity {
                         case 1: unlink(); break;
                         case 2: openAutoStartSettings(true); break;
                         case 3: askServer(); break;
-                        case 4: about(); break;
-                        case 5: finishAffinity(); break;
+                        case 4: Updater.check(this, server(), false, null); break;
+                        case 5: about(); break;
+                        case 6: finishAffinity(); break;
                     }
                 })
                 .show();

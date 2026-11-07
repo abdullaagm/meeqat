@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.5.0';
+  M.VERSION = '1.6.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -526,6 +526,46 @@
     return j;
   };
   M.info = async function () { try { return await (await fetch(M.API + '/api/info', { cache: 'no-store' })).json(); } catch (e) { return {}; } };
+  /* Native Meeqat Admin / Super app (window.MeeqatApp bridge) */
+  M.inApp = () => !!(g.MeeqatApp && g.MeeqatApp.info);
+  M.appInfo = () => { try { return JSON.parse(g.MeeqatApp.info()); } catch (e) { return null; } };
+  /** Save a text file: share sheet inside the app, normal download in a browser. */
+  M.saveText = function (name, mime, text) {
+    if (M.inApp() && g.MeeqatApp.saveFile) { g.MeeqatApp.saveFile(name, mime, text); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+    a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000);
+  };
+  /** Camera QR scanner (jsQR). Calls onCode(text) once. Returns a stop() function. */
+  M.scanQR = function (onCode, onError) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:100;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center';
+    wrap.innerHTML = '<video playsinline muted style="width:100%;height:100%;object-fit:cover"></video>' +
+      '<div style="position:absolute;width:min(70vw,320px);aspect-ratio:1;border:3px solid #f3c96b;border-radius:24px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45)"></div>' +
+      '<div style="position:absolute;top:calc(env(safe-area-inset-top) + 24px);color:#fff;font:600 17px Outfit,system-ui,sans-serif;text-align:center;padding:0 20px">Point the camera at the QR code on the TV</div>' +
+      '<button style="position:absolute;bottom:calc(env(safe-area-inset-bottom) + 30px);padding:14px 28px;border-radius:14px;border:0;background:#fff;color:#111;font:600 16px Outfit,system-ui,sans-serif">Cancel</button>';
+    document.body.appendChild(wrap);
+    const video = wrap.querySelector('video'), canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+    let stream = null, raf = 0, done = false;
+    const stop = () => { done = true; cancelAnimationFrame(raf); if (stream) stream.getTracks().forEach((t) => t.stop()); wrap.remove(); };
+    wrap.querySelector('button').onclick = stop;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { stop(); if (onError) onError(new Error('Camera not available here. Type the code instead.')); return stop; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then((s) => {
+      stream = s; video.srcObject = s; video.play();
+      const tick = () => {
+        if (done) return;
+        if (video.readyState >= 2 && g.jsQR) {
+          const w = Math.min(640, video.videoWidth), h = Math.round(video.videoHeight * (w / video.videoWidth));
+          canvas.width = w; canvas.height = h; ctx.drawImage(video, 0, 0, w, h);
+          const r = g.jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+          if (r && r.data) { stop(); onCode(r.data); return; }
+        }
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch((e) => { stop(); if (onError) onError(e.name === 'NotAllowedError' ? new Error('Camera permission was denied.') : e); });
+    return stop;
+  };
   M.cacheKey = (id) => 'miqat:settings:' + id;
   M.readCache = (id) => { try { return JSON.parse(localStorage.getItem(M.cacheKey(id)) || 'null'); } catch (e) { return null; } };
   M.writeCache = (id, obj) => { try { localStorage.setItem(M.cacheKey(id), JSON.stringify(obj)); } catch (e) { /* */ } };

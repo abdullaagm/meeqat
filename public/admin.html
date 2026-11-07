@@ -134,6 +134,7 @@ textarea{min-height:84px;resize:vertical}
     <div id="lgPick"></div>
     <button class="btn wide hide" id="lgLocal" style="margin-top:10px">Use on this device only (no server)</button>
     <div class="muted" style="margin-top:18px;text-align:center">New here? <a href="welcome.html#register" style="color:var(--acc)">Register your masjid or home</a></div>
+    <div class="muted" style="margin-top:14px;text-align:center;font-size:14px" id="lgApp"></div>
     <div class="muted" style="margin-top:8px;text-align:center;font-size:13px" id="lgHelp">Forgot your PIN? Ask the Meeqat administrator to reset it.</div>
   </div>
 </section>
@@ -161,6 +162,7 @@ textarea{min-height:84px;resize:vertical}
 
 <script src="vendor/adhan.min.js"></script>
 <script src="vendor/qrcode.js"></script>
+<script src="vendor/jsqr.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script src="places.js"></script>
@@ -374,7 +376,8 @@ textarea{min-height:84px;resize:vertical}
     <h2>Link a TV</h2>
     <div class="card pad glass">
       <div class="muted" style="margin-bottom:10px">Open the Meeqat TV app (or <b>${esc(location.host)}/pair</b> in the TV browser). Type the 6-digit code it shows.</div>
-      <div class="two"><input type="tel" id="linkCode" inputmode="numeric" maxlength="7" placeholder="6-digit code" style="letter-spacing:.3em;text-align:center;font-size:20px"><button class="btn pri" data-act="linkTv" ${local ? 'disabled' : ''}>📺 Link TV</button></div>
+      <button class="btn pri wide" data-act="scanTv" style="margin-bottom:10px" ${local ? 'disabled' : ''}>📷 Scan the QR on the TV</button>
+      <div class="two"><input type="tel" id="linkCode" inputmode="numeric" maxlength="7" placeholder="or type the 6-digit code" style="letter-spacing:.2em;text-align:center;font-size:18px"><button class="btn" data-act="linkTv" ${local ? 'disabled' : ''}>📺 Link TV</button></div>
     </div>
 
     <h2>TV controls</h2>
@@ -614,6 +617,12 @@ textarea{min-height:84px;resize:vertical}
       <button class="btn wide" style="margin-top:10px" data-act="logout">Log out of this phone</button>
     </div>
 
+    ${M.inApp() ? (() => { const ai = M.appInfo() || {}; return `<h2>App</h2>
+    <div class="card pad glass">
+      <div class="muted">Meeqat Admin app · version <b>${esc(ai.version || '')}</b><br>Website updates appear automatically. App updates are offered here when available.</div>
+      <div class="grid2" style="margin-top:12px"><button class="btn" data-act="appUpdate">⟳ Check for updates</button><button class="btn" data-act="appServer">Server address</button></div>
+    </div>`; })() : ''}
+
     <h2>Backup</h2>
     <div class="card pad glass">
       <div class="grid2"><button class="btn" data-act="export">⬇ Export settings</button><button class="btn" data-act="import">⬆ Import settings</button></div>
@@ -691,6 +700,15 @@ textarea{min-height:84px;resize:vertical}
     },
     clockReset() { S.clock.followServer = false; S.clock.offsetMs = 0; changed(); render(); },
     print() { window.print(); },
+    scanTv() {
+      M.scanQR(async (text) => {
+        const m = /[?&]link=(\d{6})/.exec(text) || /^\s*(\d{6})\s*$/.exec(text);
+        if (!m) return toast('That QR is not a Meeqat TV code');
+        try { await store.link(m[1]); toast('TV linked ✓ — it will show your screen in a moment'); } catch (e) { toast(e.message); }
+      }, (e) => toast(e.message));
+    },
+    appUpdate() { if (M.inApp()) MeeqatApp.checkUpdate(); },
+    appServer() { if (M.inApp()) MeeqatApp.changeServer(); },
     async linkTv() {
       const code = ($('linkCode').value || '').replace(/\D/g, '');
       if (code.length !== 6) return toast('Enter the 6-digit code from the TV');
@@ -743,8 +761,7 @@ textarea{min-height:84px;resize:vertical}
     },
     logout() { try { localStorage.removeItem('miqat:pin:' + ID); localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } ID = ''; $('lgPin').value = ''; showLogin(); },
     export() {
-      const blob = new Blob([JSON.stringify({ app: 'miqat', version: M.VERSION, name: NAME, settings: S }, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `miqat-${ID}-settings.json`; a.click();
+      M.saveText(`meeqat-${ID}-settings.json`, 'application/json', JSON.stringify({ app: 'miqat', version: M.VERSION, name: NAME, settings: S }, null, 2));
     },
     import() {
       const fi = $('jsonIn'); fi.value = '';
@@ -794,6 +811,7 @@ textarea{min-height:84px;resize:vertical}
   (async function init() {
     if ((await M.probe()) === 'no') { MODE = 'local'; ID = ID || 'main'; store = M.createAdminStore(ID); offlineOpen(); return; }
     M.info().then((i) => { if (i.support) $('lgHelp').textContent = 'Forgot your PIN? Contact ' + i.support; });
+    if (!M.inApp() && /Android/i.test(navigator.userAgent)) $('lgApp').innerHTML = '📱 <a href="admin-app" style="color:var(--acc)">Get the Meeqat Admin app</a> for Android';
     let saved = null; try { saved = ID && localStorage.getItem('miqat:pin:' + ID); } catch (e) { /* */ }
     if (M._probe !== 'yes') offerOffline();
     if (saved) { $('lgId').value = ID; await doLogin(saved, true); } else showLogin();

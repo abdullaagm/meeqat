@@ -1,4 +1,4 @@
-name: Build Meeqat TV app
+name: Build Meeqat apps (TV, Admin, Super)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: android-tv
+  group: android-apps
   cancel-in-progress: true
 
 jobs:
@@ -30,26 +30,37 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build signed APK
-        run: gradle -p android assembleRelease --no-daemon --stacktrace
+      - name: Build signed APKs
+        run: gradle -p android assembleTvRelease assembleAdminRelease assembleSuperadminRelease --no-daemon --stacktrace
 
-      - name: Publish APK to the website (public/downloads)
+      - name: Publish APKs (TV + Admin public, Super private)
         run: |
-          mkdir -p public/downloads
-          cp android/app/build/outputs/apk/release/app-release.apk public/downloads/meeqat-tv.apk
-          SIZE=$(stat -c%s public/downloads/meeqat-tv.apk)
-          printf '{"version":"1.0.%s","size":%s,"server":"%s","built":"%s"}\n' "$GITHUB_RUN_NUMBER" "$SIZE" "$MEEQAT_SERVER" "$(date -u +%FT%TZ)" > public/downloads/app.json
+          OUT=android/app/build/outputs/apk
+          mkdir -p public/downloads private
+          cp $OUT/tv/release/app-tv-release.apk               public/downloads/meeqat-tv.apk
+          cp $OUT/admin/release/app-admin-release.apk         public/downloads/meeqat-admin.apk
+          cp $OUT/superadmin/release/app-superadmin-release.apk private/meeqat-super.apk
+          V="1.0.$GITHUB_RUN_NUMBER"; N=$GITHUB_RUN_NUMBER
+          S_TV=$(stat -c%s public/downloads/meeqat-tv.apk); S_AD=$(stat -c%s public/downloads/meeqat-admin.apk); S_SU=$(stat -c%s private/meeqat-super.apk)
+          cat > public/downloads/app.json <<JSON
+          {"version":"$V","versionCode":$N,"size":$S_TV,"server":"$MEEQAT_SERVER","built":"$(date -u +%FT%TZ)",
+           "apps":{"tv":{"version":"$V","versionCode":$N,"size":$S_TV},
+                   "admin":{"version":"$V","versionCode":$N,"size":$S_AD},
+                   "super":{"version":"$V","versionCode":$N,"size":$S_SU}}}
+          JSON
           cat public/downloads/app.json
 
       - uses: actions/upload-artifact@v4
         with:
-          name: meeqat-tv-apk
-          path: public/downloads/meeqat-tv.apk
+          name: meeqat-apks
+          path: |
+            public/downloads/*.apk
+            private/meeqat-super.apk
 
-      - name: Commit APK
+      - name: Commit APKs
         run: |
           git config user.name  "meeqat-build-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add public/downloads
-          git commit -m "Meeqat TV app build ${GITHUB_RUN_NUMBER}" || exit 0
+          git add public/downloads private
+          git commit -m "Meeqat apps build ${GITHUB_RUN_NUMBER}" || exit 0
           for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && break; sleep 5; done
