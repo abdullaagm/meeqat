@@ -1,1 +1,4 @@
-{"version":"1.0.2","size":63750,"server":"https://meeqat.winocle.com","built":"2026-11-07T11:14:44Z"}
+{"version":"1.0.3","versionCode":3,"size":68918,"server":"https://meeqat.winocle.com","built":"2026-11-07T12:41:57Z",
+ "apps":{"tv":{"version":"1.0.3","versionCode":3,"size":68918},
+         "admin":{"version":"1.0.3","versionCode":3,"size":60074},
+         "super":{"version":"1.0.3","versionCode":3,"size":67062}}}
