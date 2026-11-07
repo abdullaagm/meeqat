@@ -1,5 +1,5 @@
 /* Miqat service worker — keeps the display working when the internet drops (HTTPS / localhost only). */
-const CACHE = 'miqat-v1.3.0';
+const CACHE = 'miqat-v1.4.0';
 const SHELL = ['./', 'index.html', 'admin.html', 'shared.js', 'config.js', 'places.js', 'manifest.webmanifest', 'icon.svg',
   'vendor/adhan.min.js', 'vendor/qrcode.js',
   'fonts/outfit-latin-300-normal.woff2', 'fonts/outfit-latin-400-normal.woff2', 'fonts/outfit-latin-500-normal.woff2',
@@ -15,7 +15,7 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   if (u.pathname.endsWith('/events')) return;            // live stream: never cache
   if (u.pathname.startsWith('/api/')) return;            // settings: app keeps its own offline copy
-  if (u.pathname.startsWith('/media/')) {                 // adhan audio: cache-first
+  if (u.pathname.startsWith('/media/') || u.pathname.startsWith('/library/')) {                 // adhan audio: cache-first
     e.respondWith(caches.open(CACHE).then(async (c) => (await c.match(e.request)) || fetch(e.request).then((r) => { if (r.ok && r.status === 200) c.put(e.request, r.clone()); return r; })));
     return;
   }

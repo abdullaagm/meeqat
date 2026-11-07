@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.2.0';
+const VERSION = '1.4.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -23,6 +23,7 @@ const PUB = path.join(ROOT, 'public');
 const DATA = process.env.DATA_DIR || path.join(ROOT, 'data');
 const SCREENS = path.join(DATA, 'screens');
 const MEDIA = path.join(DATA, 'media');
+const LIBRARY = path.join(DATA, 'library');          // administrator's adhan library (super admin uploads)
 // ALLOW_NEW_SCREENS: 'admins' (default) = only a logged-in admin of an existing screen can create more,
 //                    '1' = anyone can create a screen, '0' = disabled.
 const ALLOW_NEW = (process.env.ALLOW_NEW_SCREENS || 'admins').toLowerCase();
@@ -42,7 +43,7 @@ const MAX_SETTINGS = 512 * 1024;      // 512 KB of JSON
 const MAX_AUDIO = 15 * 1024 * 1024;   // 15 MB per audio file
 const MEDIA_NAMES = ['adhan', 'adhan-fajr', 'iqamah'];
 
-for (const d of [DATA, SCREENS, MEDIA]) fs.mkdirSync(d, { recursive: true });
+for (const d of [DATA, SCREENS, MEDIA, LIBRARY]) fs.mkdirSync(d, { recursive: true });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -102,6 +103,13 @@ function mediaMeta(id) {
 if (!load('main')) {
   save('main', { id: 'main', name: 'Main screen', pin: hashPin(DEFAULT_PIN), pinIsDefault: true, firstPin: process.env.DEFAULT_PIN ? undefined : DEFAULT_PIN, settings: null, rev: 0, created: Date.now(), updated: Date.now() });
 }
+
+/* ---------- Adhan library (only the super admin uploads; every screen can select) ---------- */
+const LIB_INDEX = path.join(LIBRARY, 'index.json');
+function libLoad() { try { return JSON.parse(fs.readFileSync(LIB_INDEX, 'utf8')); } catch (e) { return []; } }
+function libSave(list) { const tmp = LIB_INDEX + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(list, null, 1)); fs.renameSync(tmp, LIB_INDEX); }
+function libFile(id) { const it = libLoad().find((x) => x.id === id); return it ? path.join(LIBRARY, it.file) : null; }
+const LIB_KINDS = ['adhan', 'fajr', 'iqamah', 'other'];
 
 /* ---------- Emergency PIN reset ----------
  * Set RESET_PIN="main:654321" (or several: "main:654321,masjid-huda-8e3a:1111") in the host's
@@ -249,9 +257,9 @@ function serveStatic(req, res, urlPath) {
     fs.createReadStream(file).pipe(res);
   });
 }
-function serveMedia(req, res, id, name) {
-  const f = findMedia(id, name);
-  if (!f) return send(res, 404, 'Not found');
+function serveMedia(req, res, id, name, fileOverride) {
+  const f = fileOverride || findMedia(id, name);
+  if (!f || !fs.existsSync(f)) return send(res, 404, 'Not found');
   const st = fs.statSync(f), ext = path.extname(f), type = MIME[ext] || 'application/octet-stream';
   const range = req.headers.range;
   if (range) {
@@ -326,6 +334,41 @@ async function handle(req, res) {
       return json(res, 200, { ok: true, token: superToken() });
     }
     if (!superOk(req)) return json(res, 401, { error: 'Please log in again.' });
+    if (p === '/api/super/library' && req.method === 'GET') {
+      const used = {};
+      for (const x of allScreens()) { const a = (((x.settings || {}).adhan || {}).audio) || {}; for (const k of ['main', 'fajr', 'iqamah']) if (a[k]) used[a[k]] = (used[a[k]] || 0) + 1; }
+      return json(res, 200, { ok: true, items: libLoad().map((x) => Object.assign({}, x, { uses: used[x.id] || 0 })) });
+    }
+    if (p === '/api/super/library' && req.method === 'PUT') {
+      const type = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+      const ext = AUDIO_EXT[type];
+      if (!ext) return json(res, 415, { error: 'Please upload an MP3, M4A, AAC, OGG or WAV file.' });
+      const name = String(url.searchParams.get('name') || '').trim().slice(0, 80) || 'Adhan';
+      const kind = LIB_KINDS.includes(url.searchParams.get('kind')) ? url.searchParams.get('kind') : 'adhan';
+      const buf = await readBody(req, MAX_AUDIO);
+      if (!buf.length) return json(res, 400, { error: 'Empty file' });
+      const id = crypto.randomBytes(5).toString('hex');
+      fs.writeFileSync(path.join(LIBRARY, id + ext), buf);
+      const list = libLoad(); list.push({ id, name, kind, file: id + ext, size: buf.length, created: Date.now() }); libSave(list);
+      console.log(`  + library: "${name}" (${kind}, ${(buf.length / 1048576).toFixed(1)} MB)`);
+      return json(res, 201, { ok: true, id });
+    }
+    const lb = /^\/api\/super\/library\/([a-z0-9]+)$/.exec(p);
+    if (lb) {
+      const list = libLoad(), it = list.find((x) => x.id === lb[1]);
+      if (!it) return json(res, 404, { error: 'Not found' });
+      if (req.method === 'DELETE') {
+        try { fs.unlinkSync(path.join(LIBRARY, it.file)); } catch (e) { /* */ }
+        libSave(list.filter((x) => x.id !== it.id));
+        return json(res, 200, { ok: true });
+      }
+      if (req.method === 'POST') {
+        const b = await readJson(req);
+        if (b.name) it.name = String(b.name).trim().slice(0, 80);
+        if (LIB_KINDS.includes(b.kind)) it.kind = b.kind;
+        libSave(list); return json(res, 200, { ok: true });
+      }
+    }
     if (p === '/api/super/screens' && req.method === 'GET') {
       const list = allScreens().map((x) => {
         const st = x.settings || {}, loc = st.location || {}, gen = st.general || {};
@@ -381,6 +424,13 @@ async function handle(req, res) {
     return json(res, 201, { ok: true, id });
   }
 
+  /* ----- adhan library: public list + audio ----- */
+  if (p === '/api/library' && req.method === 'GET') {
+    return json(res, 200, { ok: true, items: libLoad().map((x) => ({ id: x.id, name: x.name, kind: x.kind, size: x.size, v: x.created })) });
+  }
+  let lm = /^\/library\/([a-z0-9]+)$/.exec(p);
+  if (lm && (req.method === 'GET' || req.method === 'HEAD')) return serveMedia(req, res, null, null, libFile(lm[1]));
+
   let m = /^\/media\/([a-z0-9-]+)\/([a-z-]+)$/.exec(p);
   if (m && (req.method === 'GET' || req.method === 'HEAD')) return serveMedia(req, res, m[1], m[2]);
 
@@ -435,14 +485,14 @@ async function handle(req, res) {
     if (action === 'command' && req.method === 'POST') {
       if (!auth(req, res, scr)) return;
       const b = await readJson(req);
-      const allowed = ['reload', 'test-adhan', 'test-iqamah', 'test-salah', 'identify', 'stop'];
+      const allowed = ['reload', 'test-adhan', 'test-iqamah', 'test-salah', 'test-adhkar', 'identify', 'stop'];
       if (!allowed.includes(b.type)) return json(res, 400, { error: 'Unknown command' });
       const viewers = broadcast(id, 'command', { type: b.type, prayer: b.prayer || 'dhuhr', at: Date.now() });
       return json(res, 200, { ok: true, viewers });
     }
 
     if (action === 'media' && sub && MEDIA_NAMES.includes(sub)) {
-      if (!auth(req, res, scr)) return;
+      if (!superOk(req)) return json(res, 403, { error: 'Adhan audio is managed by the Meeqat administrator. Choose one from the adhan library.' });
       const dir = path.join(MEDIA, id);
       fs.mkdirSync(dir, { recursive: true });
       const old = findMedia(id, sub);

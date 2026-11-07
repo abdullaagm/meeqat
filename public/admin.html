@@ -91,7 +91,7 @@ textarea{min-height:84px;resize:vertical}
 .li-actions{display:flex;gap:8px;align-items:center;margin-top:8px}
 .li-actions .grow{flex:1}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));background:rgba(7,11,29,.85);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid var(--line)}
-.tabs button{flex:1;max-width:120px;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--dim);padding:6px 0;cursor:pointer}
+.tabs button{flex:1;max-width:110px;min-width:0;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--dim);padding:6px 0;cursor:pointer}
 .tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--acc)}
 .banner{padding:13px 15px;border-radius:14px;margin-bottom:12px;font-size:14px;line-height:1.4;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fde68a}
@@ -126,7 +126,7 @@ textarea{min-height:84px;resize:vertical}
     <h1>Meeqat Control</h1>
     <p>Log in to control your masjid or home screen.</p>
     <div class="seg" id="lgMode" style="margin-bottom:6px"><button type="button" data-m="mobile" class="on">Mobile number</button><button type="button" data-m="id">Screen ID</button></div>
-    <label class="field" id="lgMobileF"><span>Mobile number used when registering</span><input type="tel" id="lgMobile" inputmode="tel" autocomplete="tel" placeholder="+91 98xxx xxxxx"></label>
+    <div class="field" id="lgMobileF"><span>Mobile number used when registering</span><div id="lgPhone"></div></div>
     <label class="field hide" id="lgIdF"><span>Screen ID</span><input type="text" id="lgId" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
     <label class="field"><span>PIN</span><input type="password" id="lgPin" class="pinput" inputmode="numeric" autocomplete="current-password" maxlength="12"></label>
     <div class="err" id="lgErr"></div>
@@ -150,6 +150,7 @@ textarea{min-height:84px;resize:vertical}
     <button data-tab="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg>Home</button>
     <button data-tab="iqamah"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Iqamah</button>
     <button data-tab="notices"><svg viewBox="0 0 24 24"><path d="M4 10v4h3l6 4V6L7 10Z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>Notices</button>
+    <button data-tab="adhkar"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="1.6"/><circle cx="17.3" cy="6.7" r="1.6"/><circle cx="19.5" cy="12" r="1.6"/><circle cx="17.3" cy="17.3" r="1.6"/><circle cx="12" cy="19.5" r="1.6"/><circle cx="6.7" cy="17.3" r="1.6"/><circle cx="4.5" cy="12" r="1.6"/><circle cx="6.7" cy="6.7" r="1.6"/></svg>Adhkar</button>
     <button data-tab="features"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="5" rx="2.5"/><rect x="3" y="13" width="18" height="5" rx="2.5"/><circle cx="16.5" cy="8.5" r="1.5"/><circle cx="7.5" cy="15.5" r="1.5"/></svg>Features</button>
     <button data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>Settings</button>
   </nav>
@@ -216,7 +217,7 @@ textarea{min-height:84px;resize:vertical}
     const p = $('lgPin').value.trim(); if (!p) return;
     $('lgErr').textContent = ''; $('lgPick').innerHTML = '';
     if (LGMODE === 'id') return doLogin(p);
-    const mob = $('lgMobile').value.trim();
+    const mob = M.phoneRead($('lgPhone'));
     if (mob.replace(/\D/g, '').length < 8) { $('lgErr').textContent = 'Enter the mobile number you registered with.'; return; }
     try {
       const j = await M.post('/api/find', { mobile: mob, pin: p });
@@ -225,7 +226,12 @@ textarea{min-height:84px;resize:vertical}
     } catch (e) { $('lgErr').textContent = e.status ? e.message : 'Cannot reach the server. Check your internet.'; if (!e.status) offerOffline(); }
   };
   $('lgPick').onclick = (e) => { const b = e.target.closest('[data-pick]'); if (!b) return; $('lgId').value = b.dataset.pick; doLogin($('lgPin').value.trim()); };
-  $('lgMobile').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgPin').focus(); });
+  (function () {
+    let iso = 'IN';
+    try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; iso = { 'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA', 'Asia/Qatar': 'QA', 'Asia/Muscat': 'OM', 'Asia/Kuwait': 'KW', 'Asia/Bahrain': 'BH', 'Asia/Karachi': 'PK', 'Asia/Dhaka': 'BD', 'Asia/Colombo': 'LK', 'Europe/London': 'GB', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Singapore': 'SG' }[tz] || 'IN'; } catch (e) { /* */ }
+    $('lgPhone').innerHTML = M.phoneHtml(iso, '', 'id="lgMobile"');
+    $('lgMobile').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgPin').focus(); });
+  })();
   $('lgPin').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('lgGo').click(); });
   $('lgLocal').onclick = offlineOpen;
 
@@ -276,6 +282,13 @@ textarea{min-height:84px;resize:vertical}
   document.addEventListener('change', onInput);
   function onInput(e) {
     const el = e.target;
+    if (el.dataset && el.dataset.ak !== undefined) {
+      const it = ensureAdhkar()[+el.dataset.ak]; if (!it) return;
+      const f = el.dataset.f;
+      it[f] = f === 'on' ? el.checked : f === 'count' ? Math.max(1, parseInt(el.value, 10) || 1) : el.value;
+      changed(); return;
+    }
+    if (el.dataset && el.dataset.ph && el.closest('[data-phone-owner]')) { OWNER.mobile = M.phoneRead(el.closest('[data-phone-owner]')); changed(); return; }
     if (el.dataset && el.dataset.owner) { if (e.type === 'change' || el.tagName !== 'SELECT') { OWNER[el.dataset.owner] = el.value; changed(); } return; }
     const b = el.dataset && el.dataset.b;
     if (!b) return;
@@ -361,11 +374,12 @@ textarea{min-height:84px;resize:vertical}
     <h2>TV controls</h2>
     <div class="card pad glass">
       <label class="row tog" style="padding-top:0"><div><b>Screen off (black)</b><small>Blank the TV without unplugging it</small></div><input type="checkbox" data-b="live.blank" ${S.live.blank ? 'checked' : ''}><i></i></label>
-      <div class="field"><span>Test with prayer</span><select id="testP">${M.SALAH.map((k) => `<option value="${k}" ${k === 'dhuhr' ? 'selected' : ''}>${M.LANGS.en.p[k]}</option>`).join('')}</select></div>
+      <div class="field"><span>Test with prayer</span><select id="testP">${M.SALAH.map((k) => `<option value="${k}" ${k === 'dhuhr' ? 'selected' : ''}>${M.LANGS.en.p[k]}</option>`).join('')}<option value="jumuah">Jumu'ah (adhkar test)</option></select></div>
       <div class="grid2" style="margin-top:6px">
         <button class="btn" data-act="cmd" data-c="test-adhan" ${local ? 'disabled' : ''}>🔔 Test adhan</button>
         <button class="btn" data-act="cmd" data-c="test-iqamah" ${local ? 'disabled' : ''}>⏱ Test iqamah</button>
         <button class="btn" data-act="cmd" data-c="test-salah" ${local ? 'disabled' : ''}>🤲 Test salah screen</button>
+        <button class="btn" data-act="cmd" data-c="test-adhkar" ${local ? 'disabled' : ''}>📿 Test adhkar</button>
         <button class="btn" data-act="cmd" data-c="identify" ${local ? 'disabled' : ''}>🆔 Identify TV</button>
         <button class="btn" data-act="cmd" data-c="stop" ${local ? 'disabled' : ''}>⏹ Stop test/sound</button>
         <button class="btn" data-act="cmd" data-c="reload" ${local ? 'disabled' : ''}>🔄 Reload TV</button>
@@ -446,6 +460,48 @@ textarea{min-height:84px;resize:vertical}
       <div style="padding:12px 0"><button class="btn wide" data-act="addAyah">＋ Add ayah / hadith</button></div>
     </div>`;
 
+  /* ----- adhan library (managed by the super admin) ----- */
+  let LIB = null;
+  async function loadLib() { try { LIB = (await (await fetch(M.API + '/api/library', { cache: 'no-store' })).json()).items || []; } catch (e) { LIB = []; } if (TAB === 'settings') render(); }
+  function libSelect(path, label, none) {
+    if (LIB === null && MODE === 'server') { loadLib(); LIB = []; }
+    const cur = get(path) || '';
+    const opts = [['', none]].concat((LIB || []).map((x) => [x.id, x.name + (x.kind === 'fajr' ? ' · Fajr' : x.kind === 'iqamah' ? ' · Iqamah' : '')]));
+    if (cur && !(LIB || []).some((x) => x.id === cur)) opts.push([cur, '(removed recording)']);
+    return `<div class="field"><span>${label}</span><div style="display:flex;gap:8px"><select data-b="${path}" style="flex:1">${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select><button class="btn" data-act="preview" data-p="${path}" title="Listen">▶</button></div></div>`;
+  }
+  let previewAudio = null;
+
+  /* ----- adhkar after salah ----- */
+  const AK = M.ADHKAR_KEYS, AKN = { fajr: 'Fajr', dhuhr: 'Dhuhr', asr: 'Asr', maghrib: 'Maghrib', isha: 'Isha', jumuah: "Jumu'ah" };
+  function ensureAdhkar() { if (!Array.isArray(S.adhkar.list)) S.adhkar.list = M.clone(M.STD_ADHKAR); return S.adhkar.list; }
+  VIEWS.adhkar = () => {
+    const list = M.adhkarList(S);
+    return `
+    <h2>Adhkar after salah</h2>
+    <div class="card glass">
+      ${tog('features.adhkar', 'Show adhkar on the TV after salah', 'Starts when the salah finishes (iqamah + salah minutes) and stays for the time you set below')}
+      ${tog('adhkar.showTranslation', 'Show translation under the Arabic')}
+      <div class="field"><span>How long to show (minutes) — 0 = off for that prayer</span>
+        <div class="three">${AK.map((k) => `<label class="field" style="border:0;padding:4px 0"><span>${AKN[k]}</span><input type="number" inputmode="numeric" min="0" max="60" data-b="adhkar.minutes.${k}" data-t="num" value="${esc(S.adhkar.minutes[k] ?? 0)}"></label>`).join('')}</div>
+      </div>
+      <div class="muted" style="padding:6px 0 12px">Starts after: ${AK.filter((k) => k !== 'jumuah').map((k) => `${AKN[k]} ${S.salah.minutes[k] || 10} min`).join(' · ')} · Jumu'ah ${S.salah.minutes.jumuah || 15} min after iqamah (change in Iqamah › Salah screen).</div>
+    </div>
+
+    <h2>Adhkar list (${list.filter((x) => x.on !== false).length} active)</h2>
+    ${list.map((x, i) => `<div class="iq glass" style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:15px">#${i + 1}${x.on === false ? ' <span class="muted">(off)</span>' : ''}</b>
+        <div style="display:flex;gap:6px"><button class="btn sm" data-act="akUp" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button><button class="btn sm" data-act="akDown" data-i="${i}" ${i === list.length - 1 ? 'disabled' : ''}>↓</button><button class="btn sm bad" data-act="akDel" data-i="${i}">✕</button></div></div>
+      <textarea class="ar" dir="rtl" style="font-size:20px;min-height:70px" data-ak="${i}" data-f="ar" placeholder="Arabic text">${esc(x.ar)}</textarea>
+      <textarea style="margin-top:8px;min-height:52px" data-ak="${i}" data-f="tr" placeholder="Translation / meaning (any language)">${esc(x.tr)}</textarea>
+      <div class="two" style="margin-top:8px"><input type="text" data-ak="${i}" data-f="ref" value="${esc(x.ref || '')}" placeholder="Reference"><div class="step" style="justify-content:flex-end"><span class="muted">Times ×</span><input type="number" inputmode="numeric" min="1" max="1000" data-ak="${i}" data-f="count" value="${esc(x.count || 1)}" style="width:80px;text-align:center"></div></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${AK.map((k) => `<button class="btn sm" data-act="akP" data-i="${i}" data-k="${k}" style="${x.prayers && x.prayers[k] ? 'background:var(--acc);color:var(--ink);border-color:var(--acc)' : ''}">${AKN[k]}</button>`).join('')}
+        <label class="tog" style="display:flex;align-items:center;gap:8px;margin-left:auto"><span class="muted">On</span><input type="checkbox" data-ak="${i}" data-f="on" ${x.on !== false ? 'checked' : ''}><i></i></label></div>
+    </div>`).join('')}
+    <div class="grid2" style="margin-bottom:12px"><button class="btn" data-act="akAdd">＋ Add dhikr</button><button class="btn" data-act="akReset">↺ Standard list</button></div>
+    <div class="card pad glass"><div class="two"><select id="akTest">${AK.map((k) => `<option value="${k}">${AKN[k]}</option>`).join('')}</select><button class="btn" data-act="akTest" ${MODE !== 'server' ? 'disabled' : ''}>📺 Preview on TV</button></div></div>`;
+  };
+
   VIEWS.features = () => `
     <h2>On the TV</h2>
     <div class="card glass">
@@ -487,7 +543,7 @@ textarea{min-height:84px;resize:vertical}
     ${MODE !== 'local' ? `<h2>Contact details</h2>
     <div class="card glass">
       <label class="field"><span>Contact person</span><input type="text" data-owner="contact" value="${esc(OWNER.contact || '')}"></label>
-      <label class="field"><span>Mobile number (used to log in)</span><input type="tel" data-owner="mobile" value="${esc(OWNER.mobile || '')}"></label>
+      <div class="field"><span>Mobile number (used to log in)</span><div id="ownerPhone" data-phone-owner>${(() => { const [iso, nat] = M.phoneSplit(OWNER.mobile, S.location.countryCode || 'IN'); return M.phoneHtml(iso, nat); })()}</div></div>
       <label class="field"><span>Email</span><input type="email" data-owner="email" value="${esc(OWNER.email || '')}"></label>
       <label class="field"><span>Type</span><select data-owner="type"><option value="masjid" ${OWNER.type !== 'home' ? 'selected' : ''}>Masjid</option><option value="home" ${OWNER.type === 'home' ? 'selected' : ''}>Home</option></select></label>
     </div>` : ''}
@@ -537,9 +593,10 @@ textarea{min-height:84px;resize:vertical}
       ${sel('adhan.volume', 'Volume', [[0.3, '30%'], [0.5, '50%'], [0.7, '70%'], [0.9, '90%'], [1, '100%']]).replace('data-b="adhan.volume"', 'data-b="adhan.volume" data-t="numsel"')}
       ${num('adhan.overlayMinutes', 'Adhan alert stays on screen (minutes)', 1, 1, 15)}
       <div class="field"><span>Play adhan for</span>${M.SALAH.map((k) => `<label class="row tog" style="padding:8px 0"><div><b>${M.LANGS.en.p[k]}</b></div><input type="checkbox" data-b="adhan.prayers.${k}" ${S.adhan.prayers[k] !== false ? 'checked' : ''}><i></i></label>`).join('')}</div>
-      ${['adhan', 'adhan-fajr', 'iqamah'].map((n) => `<div class="row"><div><b>${n === 'adhan' ? 'Adhan audio' : n === 'adhan-fajr' ? 'Fajr adhan audio' : 'Iqamah sound'}</b><small>${MEDIA[n] ? `Uploaded · ${(MEDIA[n].size / 1048576).toFixed(1)} MB` : n === 'adhan' ? 'Not uploaded — a soft chime plays' : n === 'adhan-fajr' ? 'Optional — uses normal adhan if empty' : 'Optional — short beep if empty'}</small></div>
-        <button class="btn sm" data-act="upload" data-n="${n}" ${MODE !== 'server' ? 'disabled' : ''}>${MEDIA[n] ? 'Replace' : 'Upload'}</button>${MEDIA[n] ? `<button class="btn sm bad" data-act="rmMedia" data-n="${n}">✕</button>` : ''}</div>`).join('')}
-      <div class="muted" style="padding:10px 0">Use a recording you have permission to use. MP3 or M4A, up to 15 MB. TV browsers may need one press of OK on the remote to allow sound.</div>
+      ${libSelect('adhan.audio.main', 'Adhan', 'Soft chime (built-in)')}
+      ${libSelect('adhan.audio.fajr', 'Fajr adhan', 'Same as adhan above')}
+      ${libSelect('adhan.audio.iqamah', 'Iqamah sound', 'Short beep (built-in)')}
+      <div class="muted" style="padding:10px 0">Adhan recordings are provided by the Meeqat administrator. Tap ▶ to listen on this phone. TV browsers may need one press of OK on the remote to allow sound.</div>
     </div>
 
     <h2>Share & screens</h2>
@@ -628,6 +685,21 @@ textarea{min-height:84px;resize:vertical}
     },
     clockReset() { S.clock.followServer = false; S.clock.offsetMs = 0; changed(); render(); },
     print() { window.print(); },
+    akAdd() { ensureAdhkar().push({ id: 'u' + Date.now(), ar: '', tr: '', ref: '', count: 1, on: true, prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true, jumuah: true } }); changed(); render(); setTimeout(() => scrollTo(0, document.body.scrollHeight), 50); },
+    akDel(t) { if (!confirm('Delete this dhikr?')) return; ensureAdhkar().splice(+t.dataset.i, 1); changed(); render(); },
+    akUp(t) { const l = ensureAdhkar(), i = +t.dataset.i; if (i > 0) { [l[i - 1], l[i]] = [l[i], l[i - 1]]; changed(); render(); } },
+    akDown(t) { const l = ensureAdhkar(), i = +t.dataset.i; if (i < l.length - 1) { [l[i + 1], l[i]] = [l[i], l[i + 1]]; changed(); render(); } },
+    akP(t) { const it = ensureAdhkar()[+t.dataset.i]; it.prayers = it.prayers || {}; it.prayers[t.dataset.k] = !it.prayers[t.dataset.k]; changed(); render(); },
+    akReset() { if (!confirm('Replace your list with the standard adhkar list?')) return; S.adhkar.list = M.clone(M.STD_ADHKAR); changed(); render(); },
+    akTest() { cmd('test-adhkar', { prayer: $('akTest').value }); },
+    preview(t) {
+      const id = get(t.dataset.p);
+      if (previewAudio) { previewAudio.pause(); previewAudio = null; if (t.textContent === '■') { t.textContent = '▶'; return; } }
+      if (!id) return toast('Built-in sound plays on the TV');
+      previewAudio = new Audio(M.API + '/library/' + encodeURIComponent(id)); previewAudio.play().catch((e) => toast(e.message));
+      document.querySelectorAll('[data-act=preview]').forEach((b) => (b.textContent = '▶')); t.textContent = '■';
+      previewAudio.onended = () => { t.textContent = '▶'; };
+    },
     iqOn() { S.features.iqamah = true; changed(); render(); },
     addAnn() { S.announcements = S.announcements || []; S.announcements.push({ id: 'a' + Date.now(), text: '', from: '', to: '', on: true }); changed(); render(); },
     delAnn(t) { S.announcements.splice(+t.dataset.i, 1); changed(); render(); },

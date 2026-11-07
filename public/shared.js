@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.3.0';
+  M.VERSION = '1.4.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -26,7 +26,7 @@
       shuruq: true, iqamah: true, jumuah: true, announcements: true, ayah: true,
       adhanOverlay: true, adhanSound: false, iqamahCountdown: true, salahScreen: true,
       ramadan: 'auto', sunnahTimes: false, qr: true, burnIn: true, nightDim: false,
-      tomorrowAfterIsha: true, lite: false
+      tomorrowAfterIsha: true, lite: false, adhkar: true
     },
     iqamah: {
       roundTo: 0,
@@ -37,7 +37,15 @@
       isha: { mode: 'offset', offset: 15, time: '20:00' }
     },
     jumuah: { khutbah: '12:45', iqamah: '13:15', note: '' },
-    adhan: { overlayMinutes: 3, volume: 0.9, beepBeforeIqamah: true, prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true } },
+    adhan: {
+      overlayMinutes: 3, volume: 0.9, beepBeforeIqamah: true, prayers: { fajr: true, dhuhr: true, asr: true, maghrib: true, isha: true },
+      audio: { main: '', fajr: '', iqamah: '' } // ids from the administrator's adhan library ('' = built-in chime / beep)
+    },
+    adhkar: {
+      minutes: { fajr: 15, dhuhr: 10, asr: 10, maghrib: 15, isha: 10, jumuah: 10 },
+      showTranslation: true,
+      list: null // null = standard starter list (M.STD_ADHKAR)
+    },
     salah: { countdownSeconds: 60, minutes: { fajr: 10, dhuhr: 10, asr: 10, maghrib: 8, isha: 12, jumuah: 15 } },
     ramadan: { taraweeh: '20:30', imsakMinutes: 10 },
     display: {
@@ -58,6 +66,62 @@
       { ar: 'حَافِظُوا عَلَى الصَّلَوَاتِ وَالصَّلَاةِ الْوُسْطَىٰ', tr: 'Guard your prayers, and especially the middle prayer.', ref: 'Al-Baqarah 2:238', on: true },
       { ar: 'وَأَقِمِ الصَّلَاةَ لِذِكْرِي', tr: 'And establish prayer for My remembrance.', ref: 'Ta-Ha 20:14', on: true }
     ]
+  };
+
+  /* Standard adhkar after the obligatory prayers (starter list — every masjid can edit). */
+  const PR = (f, d, a, m, i, j) => ({ fajr: f, dhuhr: d, asr: a, maghrib: m, isha: i, jumuah: j });
+  const ALL = PR(1, 1, 1, 1, 1, 1), FM = PR(1, 0, 0, 1, 0, 0), NOT_FM = PR(0, 1, 1, 0, 1, 1), FAJR = PR(1, 0, 0, 0, 0, 0);
+  M.STD_ADHKAR = [
+    { id: 's1', ar: 'أَسْتَغْفِرُ اللّٰهَ', tr: 'I seek the forgiveness of Allah.', ref: 'Muslim', count: 3, prayers: ALL },
+    { id: 's2', ar: 'اللّٰهُمَّ أَنْتَ السَّلَامُ، وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ', tr: 'O Allah, You are Peace and from You is peace. Blessed are You, O Possessor of majesty and honour.', ref: 'Muslim', count: 1, prayers: ALL },
+    { id: 's3', ar: 'لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ', tr: 'None has the right to be worshipped but Allah alone, without partner. His is the dominion and His is the praise, and He is over all things capable.', ref: 'Bukhari, Muslim', count: 1, prayers: ALL },
+    { id: 's4', ar: 'اللّٰهُمَّ لَا مَانِعَ لِمَا أَعْطَيْتَ، وَلَا مُعْطِيَ لِمَا مَنَعْتَ، وَلَا يَنْفَعُ ذَا الْجَدِّ مِنْكَ الْجَدُّ', tr: 'O Allah, none can withhold what You give, none can give what You withhold, and no wealth avails its owner against You.', ref: 'Bukhari, Muslim', count: 1, prayers: ALL },
+    { id: 's5', ar: 'سُبْحَانَ اللّٰهِ', tr: 'Glory be to Allah.', ref: 'Muslim', count: 33, prayers: ALL },
+    { id: 's6', ar: 'الْحَمْدُ لِلّٰهِ', tr: 'All praise is for Allah.', ref: 'Muslim', count: 33, prayers: ALL },
+    { id: 's7', ar: 'اللّٰهُ أَكْبَرُ', tr: 'Allah is the Greatest.', ref: 'Muslim', count: 33, prayers: ALL },
+    { id: 's8', ar: 'لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ', tr: 'To complete one hundred.', ref: 'Muslim', count: 1, prayers: ALL },
+    { id: 's9', ar: 'اللّٰهُ لَا إِلٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ', tr: 'Ayat al-Kursi', ref: 'Al-Baqarah 2:255 · Nasa’i', count: 1, prayers: ALL },
+    { id: 's10', ar: 'قُلْ هُوَ اللّٰهُ أَحَدٌ ۝ اللّٰهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ', tr: 'Surah Al-Ikhlas', ref: 'Abu Dawud, Tirmidhi', count: 1, prayers: NOT_FM },
+    { id: 's11', ar: 'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ', tr: 'Surah Al-Falaq', ref: 'Abu Dawud, Tirmidhi', count: 1, prayers: NOT_FM },
+    { id: 's12', ar: 'قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ', tr: 'Surah An-Nas', ref: 'Abu Dawud, Tirmidhi', count: 1, prayers: NOT_FM },
+    { id: 's13', ar: 'قُلْ هُوَ اللّٰهُ أَحَدٌ ۝ اللّٰهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ', tr: 'Surah Al-Ikhlas (three times after Fajr and Maghrib)', ref: 'Abu Dawud, Tirmidhi', count: 3, prayers: FM },
+    { id: 's14', ar: 'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ', tr: 'Surah Al-Falaq (three times after Fajr and Maghrib)', ref: 'Abu Dawud, Tirmidhi', count: 3, prayers: FM },
+    { id: 's15', ar: 'قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ', tr: 'Surah An-Nas (three times after Fajr and Maghrib)', ref: 'Abu Dawud, Tirmidhi', count: 3, prayers: FM },
+    { id: 's16', ar: 'لَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، يُحْيِي وَيُمِيتُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ', tr: 'None has the right to be worshipped but Allah alone, without partner. His is the dominion and the praise; He gives life and causes death, and He is over all things capable.', ref: 'Tirmidhi — after Fajr and Maghrib', count: 10, prayers: FM },
+    { id: 's17', ar: 'اللّٰهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا، وَرِزْقًا طَيِّبًا، وَعَمَلًا مُتَقَبَّلًا', tr: 'O Allah, I ask You for beneficial knowledge, good provision and accepted deeds.', ref: 'Ibn Majah — after Fajr', count: 1, prayers: FAJR },
+    { id: 's18', ar: 'اللّٰهُمَّ أَعِنِّي عَلَىٰ ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ', tr: 'O Allah, help me to remember You, to thank You and to worship You well.', ref: 'Abu Dawud, Nasa’i', count: 1, prayers: ALL }
+  ].map((x) => Object.assign({ on: true }, x));
+  M.ADHKAR_KEYS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah'];
+  M.adhkarList = (s) => (Array.isArray(s.adhkar && s.adhkar.list) ? s.adhkar.list : M.clone(M.STD_ADHKAR));
+  /** Adhkar to show after a given prayer ('jumuah' on Fridays). */
+  M.adhkarFor = (s, key) => M.adhkarList(s).filter((x) => x.on !== false && (x.ar || x.tr) && x.prayers && x.prayers[key]);
+
+  /* Telephone dial codes (ISO, code). Default follows the chosen country. */
+  M.DIAL = [['IN', '91'], ['AE', '971'], ['SA', '966'], ['QA', '974'], ['OM', '968'], ['KW', '965'], ['BH', '973'], ['PK', '92'], ['BD', '880'], ['LK', '94'], ['MV', '960'], ['NP', '977'],
+    ['MY', '60'], ['ID', '62'], ['SG', '65'], ['BN', '673'], ['PH', '63'], ['TH', '66'], ['TR', '90'], ['EG', '20'], ['JO', '962'], ['LB', '961'], ['IQ', '964'], ['IR', '98'], ['AF', '93'], ['YE', '967'],
+    ['SY', '963'], ['PS', '970'], ['MA', '212'], ['DZ', '213'], ['TN', '216'], ['LY', '218'], ['SD', '249'], ['SO', '252'], ['ET', '251'], ['KE', '254'], ['TZ', '255'], ['UG', '256'],
+    ['ZM', '260'], ['MW', '265'], ['MZ', '258'], ['ZA', '27'], ['NG', '234'], ['GH', '233'], ['SN', '221'], ['GB', '44'], ['IE', '353'], ['DE', '49'], ['FR', '33'], ['NL', '31'], ['BE', '32'],
+    ['IT', '39'], ['ES', '34'], ['SE', '46'], ['NO', '47'], ['DK', '45'], ['CH', '41'], ['AT', '43'], ['BA', '387'], ['AL', '355'], ['XK', '383'], ['RU', '7'], ['US', '1'], ['CA', '1'],
+    ['AU', '61'], ['NZ', '64'], ['JP', '81'], ['CN', '86'], ['HK', '852']];
+  M.flag = (iso) => String(iso).toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)));
+  M.dialFor = (iso) => { const d = M.DIAL.find((x) => x[0] === iso); return d ? d[1] : ''; };
+  /** Phone input with a country-code box. Returns HTML; read it back with M.phoneRead(wrapper). */
+  M.phoneHtml = function (iso, number, attrs) {
+    const opts = M.DIAL.map(([c, code]) => `<option value="${c}" ${c === iso ? 'selected' : ''}>${M.flag(c)} +${code}</option>`).join('');
+    return `<div class="phone" style="display:grid;grid-template-columns:118px 1fr;gap:8px"><select data-ph="cc" aria-label="Country code">${opts}</select><input type="tel" inputmode="tel" autocomplete="tel-national" data-ph="num" value="${M.esc(number || '')}" placeholder="Mobile number" ${attrs || ''}></div>`;
+  };
+  M.phoneRead = function (wrap) {
+    const iso = wrap.querySelector('[data-ph=cc]').value, raw = wrap.querySelector('[data-ph=num]').value.trim();
+    if (/^\s*\+/.test(raw)) return raw.replace(/[^\d+]/g, '').replace(/^(\+\d{1,4})/, '$1 ');
+    const digits = raw.replace(/\D/g, '').replace(/^0+/, '');
+    return digits ? `+${M.dialFor(iso)} ${digits}` : '';
+  };
+  /** Split a stored "+971 501234567" back into [iso, national]. */
+  M.phoneSplit = function (stored, fallbackIso) {
+    const m = /^\+(\d{1,4})\s*(.*)$/.exec(String(stored || '').trim());
+    if (!m) return [fallbackIso || 'IN', String(stored || '')];
+    const hit = (fallbackIso && M.dialFor(fallbackIso) === m[1]) ? fallbackIso : (M.DIAL.find((x) => x[1] === m[1]) || [fallbackIso || 'IN'])[0];
+    return [hit, m[2]];
   };
 
   /* Quick presets — "Home" and "Masjid" just flip feature switches. */
@@ -159,8 +223,8 @@
       silencePhones: 'Please switch off your mobile phone', straightenRows: 'Straighten your rows',
       khutbahInProgress: 'Khutbah in progress', listenSilently: 'Please listen in silence', suhoorEnds: 'Suhoor ends',
       iftar: 'Iftar', taraweeh: 'Taraweeh', ramadan: 'Ramadan Kareem', day: 'Day', scan: 'Scan to control',
-      offline: 'Offline · using saved settings', tomorrow: 'Tomorrow', notice: 'Notice', midnight: 'Midnight', lastThird: 'Last third', tapSound: 'Press OK to enable adhan sound' },
-    ar: { name: 'العربية', dir: 'rtl', locale: 'ar', imsak: 'الإمساك',
+      offline: 'Offline · using saved settings', tomorrow: 'Tomorrow', notice: 'Notice', midnight: 'Midnight', lastThird: 'Last third', tapSound: 'Press OK to enable adhan sound', adhkar: 'Adhkar after salah' },
+    ar: { name: 'العربية', dir: 'rtl', locale: 'ar', imsak: 'الإمساك', adhkar: 'أذكار بعد الصلاة',
       p: P('الفجر', 'الشروق', 'الظهر', 'العصر', 'المغرب', 'العشاء', 'الجمعة'),
       next: 'الصلاة القادمة', remaining: 'الوقت المتبقي', adhan: 'الأذان', iqamah: 'الإقامة', iqamahIn: 'الإقامة بعد', now: 'الآن',
       khutbah: 'الخطبة', sunrise: 'شروق الشمس', timeFor: 'حان الآن موعد', salahInProgress: 'الصلاة قائمة',
@@ -168,7 +232,7 @@
       khutbahInProgress: 'الخطبة قائمة', listenSilently: 'الرجاء الإنصات', suhoorEnds: 'نهاية السحور',
       iftar: 'الإفطار', taraweeh: 'التراويح', ramadan: 'رمضان كريم', day: 'اليوم', scan: 'امسح للتحكم',
       offline: 'غير متصل · الإعدادات المحفوظة', tomorrow: 'غداً', notice: 'إعلان', midnight: 'منتصف الليل', lastThird: 'الثلث الأخير', tapSound: 'اضغط موافق لتفعيل صوت الأذان' },
-    ml: { name: 'മലയാളം', dir: 'ltr', locale: 'ml-IN', imsak: 'ഇംസാക്',
+    ml: { name: 'മലയാളം', dir: 'ltr', locale: 'ml-IN', imsak: 'ഇംസാക്', adhkar: 'നമസ്കാരശേഷമുള്ള ദിക്റുകൾ',
       p: P('സുബ്ഹ്', 'ഉദയം', 'ളുഹ്ർ', 'അസ്ർ', 'മഗ്‌രിബ്', 'ഇശാ', 'ജുമുഅ'),
       next: 'അടുത്ത നമസ്കാരം', remaining: 'ബാക്കി സമയം', adhan: 'ബാങ്ക്', iqamah: 'ഇഖാമത്ത്', iqamahIn: 'ഇഖാമത്തിന്', now: 'ഇപ്പോൾ',
       khutbah: 'ഖുതുബ', sunrise: 'സൂര്യോദയം', timeFor: 'ബാങ്ക് സമയം', salahInProgress: 'നമസ്കാരം നടക്കുന്നു',
@@ -176,7 +240,7 @@
       khutbahInProgress: 'ഖുതുബ നടക്കുന്നു', listenSilently: 'ദയവായി നിശബ്ദമായി ശ്രദ്ധിക്കുക', suhoorEnds: 'അത്താഴം അവസാനം',
       iftar: 'നോമ്പുതുറ', taraweeh: 'തറാവീഹ്', ramadan: 'റമദാൻ കരീം', day: 'ദിവസം', scan: 'നിയന്ത്രിക്കാൻ സ്കാൻ ചെയ്യുക',
       offline: 'ഓഫ്‌ലൈൻ · സേവ് ചെയ്ത ക്രമീകരണങ്ങൾ', tomorrow: 'നാളെ', notice: 'അറിയിപ്പ്', midnight: 'അർദ്ധരാത്രി', lastThird: 'അവസാന മൂന്നിലൊന്ന്', tapSound: 'ബാങ്ക് ശബ്ദത്തിന് OK അമർത്തുക' },
-    ur: { name: 'اردو', dir: 'rtl', locale: 'ur', imsak: 'امساک',
+    ur: { name: 'اردو', dir: 'rtl', locale: 'ur', imsak: 'امساک', adhkar: 'نماز کے بعد کے اذکار',
       p: P('فجر', 'طلوع آفتاب', 'ظہر', 'عصر', 'مغرب', 'عشاء', 'جمعہ'),
       next: 'اگلی نماز', remaining: 'باقی وقت', adhan: 'اذان', iqamah: 'اقامت', iqamahIn: 'اقامت میں', now: 'ابھی',
       khutbah: 'خطبہ', sunrise: 'طلوع آفتاب', timeFor: 'وقتِ اذان', salahInProgress: 'نماز جاری ہے',
@@ -184,7 +248,7 @@
       khutbahInProgress: 'خطبہ جاری ہے', listenSilently: 'براہ کرم خاموشی سے سنیں', suhoorEnds: 'سحری کا اختتام',
       iftar: 'افطار', taraweeh: 'تراویح', ramadan: 'رمضان کریم', day: 'دن', scan: 'کنٹرول کے لیے اسکین کریں',
       offline: 'آف لائن · محفوظ ترتیبات', tomorrow: 'کل', notice: 'اعلان', midnight: 'نصف شب', lastThird: 'آخری تہائی', tapSound: 'اذان کی آواز کے لیے OK دبائیں' },
-    hi: { name: 'हिन्दी', dir: 'ltr', locale: 'hi-IN', imsak: 'इम्साक',
+    hi: { name: 'हिन्दी', dir: 'ltr', locale: 'hi-IN', imsak: 'इम्साक', adhkar: 'नमाज़ के बाद के अज़कार',
       p: P('फ़ज्र', 'सूर्योदय', 'ज़ुहर', 'अस्र', 'मग़रिब', 'इशा', 'जुमा'),
       next: 'अगली नमाज़', remaining: 'शेष समय', adhan: 'अज़ान', iqamah: 'इक़ामत', iqamahIn: 'इक़ामत में', now: 'अभी',
       khutbah: 'ख़ुत्बा', sunrise: 'सूर्योदय', timeFor: 'अज़ान का समय', salahInProgress: 'नमाज़ जारी है',
@@ -192,7 +256,7 @@
       khutbahInProgress: 'ख़ुत्बा जारी है', listenSilently: 'कृपया ख़ामोशी से सुनें', suhoorEnds: 'सहरी समाप्त',
       iftar: 'इफ़्तार', taraweeh: 'तरावीह', ramadan: 'रमज़ान करीम', day: 'दिन', scan: 'नियंत्रण के लिए स्कैन करें',
       offline: 'ऑफ़लाइन · सहेजी गई सेटिंग्स', tomorrow: 'कल', notice: 'सूचना', midnight: 'आधी रात', lastThird: 'अंतिम तिहाई', tapSound: 'अज़ान की आवाज़ के लिए OK दबाएँ' },
-    ta: { name: 'தமிழ்', dir: 'ltr', locale: 'ta-IN', imsak: 'இம்ஸாக்',
+    ta: { name: 'தமிழ்', dir: 'ltr', locale: 'ta-IN', imsak: 'இம்ஸாக்', adhkar: 'தொழுகைக்குப் பிந்தைய திக்ர்',
       p: P('ஃபஜ்ர்', 'சூரிய உதயம்', 'லுஹர்', 'அஸர்', 'மஃரிப்', 'இஷா', 'ஜும்ஆ'),
       next: 'அடுத்த தொழுகை', remaining: 'மீதமுள்ள நேரம்', adhan: 'பாங்கு', iqamah: 'இகாமத்', iqamahIn: 'இகாமத்துக்கு', now: 'இப்போது',
       khutbah: 'குத்பா', sunrise: 'சூரிய உதயம்', timeFor: 'பாங்கு நேரம்', salahInProgress: 'தொழுகை நடைபெறுகிறது',
@@ -200,7 +264,7 @@
       khutbahInProgress: 'குத்பா நடைபெறுகிறது', listenSilently: 'தயவுசெய்து அமைதியாகக் கேளுங்கள்', suhoorEnds: 'ஸஹர் முடிவு',
       iftar: 'இஃப்தார்', taraweeh: 'தராவீஹ்', ramadan: 'ரமளான் கரீம்', day: 'நாள்', scan: 'கட்டுப்படுத்த ஸ்கேன் செய்யவும்',
       offline: 'ஆஃப்லைன் · சேமித்த அமைப்புகள்', tomorrow: 'நாளை', notice: 'அறிவிப்பு', midnight: 'நள்ளிரவு', lastThird: 'கடைசி மூன்றில் ஒன்று', tapSound: 'பாங்கு ஒலிக்கு OK அழுத்தவும்' },
-    bn: { name: 'বাংলা', dir: 'ltr', locale: 'bn-BD', imsak: 'ইমসাক',
+    bn: { name: 'বাংলা', dir: 'ltr', locale: 'bn-BD', imsak: 'ইমসাক', adhkar: 'নামাজের পরের যিকির',
       p: P('ফজর', 'সূর্যোদয়', 'যোহর', 'আসর', 'মাগরিব', 'এশা', 'জুমা'),
       next: 'পরবর্তী নামাজ', remaining: 'বাকি সময়', adhan: 'আযান', iqamah: 'ইকামত', iqamahIn: 'ইকামত', now: 'এখন',
       khutbah: 'খুতবা', sunrise: 'সূর্যোদয়', timeFor: 'আযানের সময়', salahInProgress: 'নামাজ চলছে',
@@ -208,7 +272,7 @@
       khutbahInProgress: 'খুতবা চলছে', listenSilently: 'অনুগ্রহ করে নীরবে শুনুন', suhoorEnds: 'সেহরির শেষ',
       iftar: 'ইফতার', taraweeh: 'তারাবীহ', ramadan: 'রমজান কারীম', day: 'দিন', scan: 'নিয়ন্ত্রণ করতে স্ক্যান করুন',
       offline: 'অফলাইন · সংরক্ষিত সেটিংস', tomorrow: 'আগামীকাল', notice: 'ঘোষণা', midnight: 'মধ্যরাত', lastThird: 'শেষ তৃতীয়াংশ', tapSound: 'আযানের শব্দের জন্য OK চাপুন' },
-    id: { name: 'Bahasa Indonesia', dir: 'ltr', locale: 'id-ID', imsak: 'Imsak',
+    id: { name: 'Bahasa Indonesia', dir: 'ltr', locale: 'id-ID', imsak: 'Imsak', adhkar: 'Zikir setelah salat',
       p: P('Subuh', 'Terbit', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya', "Jum'at"),
       next: 'Salat berikutnya', remaining: 'Waktu tersisa', adhan: 'Azan', iqamah: 'Iqamah', iqamahIn: 'Iqamah dalam', now: 'Sekarang',
       khutbah: 'Khutbah', sunrise: 'Matahari terbit', timeFor: 'Waktunya azan', salahInProgress: 'Salat sedang berlangsung',
@@ -216,7 +280,7 @@
       khutbahInProgress: 'Khutbah sedang berlangsung', listenSilently: 'Mohon dengarkan dengan tenang', suhoorEnds: 'Imsak',
       iftar: 'Berbuka', taraweeh: 'Tarawih', ramadan: 'Ramadan Kareem', day: 'Hari', scan: 'Pindai untuk mengatur',
       offline: 'Luring · pengaturan tersimpan', tomorrow: 'Besok', notice: 'Pengumuman', midnight: 'Tengah malam', lastThird: 'Sepertiga akhir', tapSound: 'Tekan OK untuk suara azan' },
-    tr: { name: 'Türkçe', dir: 'ltr', locale: 'tr-TR', imsak: 'İmsak',
+    tr: { name: 'Türkçe', dir: 'ltr', locale: 'tr-TR', imsak: 'İmsak', adhkar: 'Namaz sonrası zikirler',
       p: P('Sabah', 'Güneş', 'Öğle', 'İkindi', 'Akşam', 'Yatsı', 'Cuma'),
       next: 'Sonraki namaz', remaining: 'Kalan süre', adhan: 'Ezan', iqamah: 'Kamet', iqamahIn: 'Kamete', now: 'Şimdi',
       khutbah: 'Hutbe', sunrise: 'Güneş doğuşu', timeFor: 'Ezan vakti', salahInProgress: 'Namaz kılınıyor',
@@ -224,7 +288,7 @@
       khutbahInProgress: 'Hutbe okunuyor', listenSilently: 'Lütfen sessizce dinleyiniz', suhoorEnds: 'İmsak',
       iftar: 'İftar', taraweeh: 'Teravih', ramadan: 'Hayırlı Ramazanlar', day: 'Gün', scan: 'Yönetmek için tarayın',
       offline: 'Çevrimdışı · kayıtlı ayarlar', tomorrow: 'Yarın', notice: 'Duyuru', midnight: 'Gece yarısı', lastThird: 'Son üçte bir', tapSound: 'Ezan sesi için OK tuşuna basın' },
-    fr: { name: 'Français', dir: 'ltr', locale: 'fr-FR', imsak: 'Imsak',
+    fr: { name: 'Français', dir: 'ltr', locale: 'fr-FR', imsak: 'Imsak', adhkar: 'Invocations après la prière',
       p: P('Fajr', 'Chourouk', 'Dhohr', 'Asr', 'Maghrib', 'Icha', "Joumou'a"),
       next: 'Prochaine prière', remaining: 'Temps restant', adhan: 'Adhan', iqamah: 'Iqama', iqamahIn: 'Iqama dans', now: 'Maintenant',
       khutbah: 'Khotba', sunrise: 'Lever du soleil', timeFor: "C'est l'heure de", salahInProgress: 'Prière en cours',
@@ -408,7 +472,8 @@
       const start = isJ ? jumuah.khutbah : times[k];
       const iqa = isJ ? jumuah.iqamah : (s.features.iqamah ? iq[k] : null);
       const mins = (s.salah.minutes && (isJ ? s.salah.minutes.jumuah : s.salah.minutes[k])) || 10;
-      events.push({ key: k, jumuah: isJ, start, adhanAt: times[k], iqamah: iqa, end: new Date((iqa || start).getTime() + mins * 60000) });
+      const iqForAdhkar = isJ ? jumuah.iqamah : (iq[k] || start);
+      events.push({ key: k, jumuah: isJ, start, adhanAt: times[k], iqamah: iqa, end: new Date((iqa || start).getTime() + mins * 60000), adhkarAt: new Date(iqForAdhkar.getTime() + mins * 60000) });
     }
     return { p, dow, friday, times, iqamah: iq, jumuah, sunnah, events };
   };

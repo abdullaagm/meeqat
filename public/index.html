@@ -205,6 +205,24 @@ body.nocursor{cursor:none}
 .ov-tag{display:inline-block;background:var(--acc);color:var(--ink);font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:2.6vmin;padding:1vmin 3vmin;border-radius:999px;margin-bottom:4vmin}
 .ov-msg{font-size:6.4vmin;font-weight:500;line-height:1.3;white-space:pre-wrap}
 .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
+.ov-adhkar{background:radial-gradient(120% 90% at 50% 0%,#14234a 0%,#050816 70%);justify-content:space-between;padding:5vmin 6vmin 4vmin}
+.adk-top{display:flex;align-items:center;gap:2vmin;justify-content:center}
+.adk-top .ov-k{font-size:3vmin}
+.adk-stage{position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center}
+.adk-item{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;opacity:0;transform:translateY(2vmin);transition:opacity 1s,transform 1s;padding:0 4vmin}
+.adk-item.on{opacity:1;transform:none}
+.adk-ar{color:#fff;line-height:1.7;text-align:center;max-width:92vw}
+.adk-tr{font-size:3.2vmin;color:var(--mut);max-width:80vw;line-height:1.4}
+.adk-ref{font-size:2.2vmin;color:var(--dim)}
+.adk-cnt{display:inline-flex;align-items:baseline;gap:.6vmin;padding:1vmin 3vmin;border-radius:999px;background:var(--accA);border:2px solid var(--acc);color:var(--acc);font-size:5vmin;font-weight:600;line-height:1}
+.adk-cnt small{font-size:2.6vmin;font-weight:500}
+.adk-foot{width:100%;display:flex;align-items:center;gap:3vmin}
+.adk-dots{display:flex;gap:1vmin;flex-wrap:wrap;max-width:40vw}
+.adk-dots i{width:1.2vmin;height:1.2vmin;border-radius:50%;background:rgba(255,255,255,.22)}
+.adk-dots i.on{background:var(--acc);transform:scale(1.4)}
+.adk-bar{flex:1;height:.7vmin;border-radius:1vmin;background:rgba(255,255,255,.12);overflow:hidden}
+.adk-bar i{display:block;height:100%;width:0;background:var(--acc);transition:width 1s linear}
+.adk-left{font-size:2.6vmin;color:var(--mut);min-width:9vmin;text-align:end}
 .soundchip{position:fixed;z-index:80;right:2.4vmin;bottom:2.4vmin;display:none;padding:1.4vmin 2.6vmin;border-radius:999px;font-size:2vmin;background:rgba(0,0,0,.6);border:1px solid var(--acc);color:#fff}
 .soundchip.show{display:block}
 [dir=rtl] .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
@@ -577,7 +595,7 @@ body.nocursor{cursor:none}
     if (forced && now < forced.until) return forced;
     if (forced && now >= forced.until) forced = null;
     if (S.live.urgent && (!S.live.urgentUntil || now < S.live.urgentUntil)) return { t: 'urgent' };
-    const F = S.features, rank = { salah: 4, khutbah: 3, iq: 2, adhan: 1 };
+    const F = S.features, rank = { salah: 4, khutbah: 3, iq: 2, adhan: 1, adhkar: 0 };
     let best = null;
     const consider = (t, e) => { if (!best || rank[t] > rank[best.t]) best = { t, e }; };
     const evs = [...days.yesterday.events, ...days.today.events].filter((e) => !e.sun);
@@ -587,6 +605,12 @@ body.nocursor{cursor:none}
       if (F.salahScreen && e.jumuah && e.iqamah && now >= e.start && now < e.iqamah) consider('khutbah', e);
       if (F.iqamahCountdown && e.iqamah && !e.jumuah && now >= e.iqamah - cds && now < e.iqamah) consider('iq', e);
       if (F.adhanOverlay && !e.jumuah && S.adhan.prayers[e.key] !== false && now >= e.start && now < e.start.getTime() + (+S.adhan.overlayMinutes || 3) * 60000) consider('adhan', e);
+      if (F.adhkar && e.adhkarAt) {
+        const k = e.jumuah ? 'jumuah' : e.key, mins = +((S.adhkar.minutes || {})[k]) || 0;
+        if (mins > 0 && now >= e.adhkarAt && now < e.adhkarAt.getTime() + mins * 60000 && M.adhkarFor(S, k).length) {
+          if (!best || rank.adhkar > rank[best.t]) best = { t: 'adhkar', e, from: e.adhkarAt.getTime(), until: e.adhkarAt.getTime() + mins * 60000 };
+        }
+      }
     }
     return best;
   }
@@ -607,6 +631,17 @@ body.nocursor{cursor:none}
     if (cd && st.e) cd.textContent = M.fmtDuration(st.e.iqamah - now + 999, S);
     const ck = el.querySelector('[data-clock]');
     if (ck) ck.textContent = M.fmtHM(now, S);
+    if (st.t === 'adhkar') updateAdhkar(el, st, now);
+  }
+  function updateAdhkar(el, st, now) {
+    const items = el.querySelectorAll('[data-adk]'), n = items.length; if (!n) return;
+    const total = st.until - st.from, elapsed = Math.max(0, now - st.from);
+    const per = Math.max(12000, total / n);
+    const idx = Math.floor(elapsed / per) % n;
+    items.forEach((x, i) => x.classList.toggle('on', i === idx));
+    el.querySelectorAll('.adk-dots i').forEach((x, i) => x.classList.toggle('on', i === idx));
+    el.querySelector('[data-adkbar]').style.width = Math.min(100, (elapsed / total) * 100).toFixed(2) + '%';
+    el.querySelector('[data-adkleft]').textContent = M.fmtDuration(st.until - now + 999, S);
   }
   function arLine(text) { return S.general.lang !== 'ar' && S.general.showArabic ? `<span class="ar">${text}</span>` : ''; }
   function overlayHtml(st) {
@@ -628,6 +663,17 @@ body.nocursor{cursor:none}
         return `<div class="calm">${ICON.phoneOff}<div class="s1">${T.salahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الصلاة قائمة</div>' : ''}<div class="s3">${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
       case 'khutbah':
         return `<div class="calm">${ICON.mic}<div class="s1">${T.khutbahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الخطبة — الرجاء الإنصات</div>' : ''}<div class="s3">${T.listenSilently} · ${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
+      case 'adhkar': {
+        const k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k);
+        const size = (t) => { const n = (t || '').length; return n < 25 ? 11 : n < 60 ? 8 : n < 120 ? 6.2 : n < 220 ? 4.8 : n < 360 ? 3.9 : 3.3; };
+        return `<div class="adk-top"><span class="ov-k">${T.adhkar} · ${M.esc(nameOf(e))}</span></div>
+          <div class="adk-stage">${list.map((x, i) => `<div class="adk-item" data-adk="${i}">
+            <div class="adk-ar ar" style="font-size:${size(x.ar)}vmin">${M.esc(x.ar)}</div>
+            ${+x.count > 1 ? `<div class="adk-cnt"><small>×</small>${M.digits(+x.count, S)}</div>` : ''}
+            ${S.adhkar.showTranslation !== false && x.tr ? `<div class="adk-tr">${M.esc(x.tr)}</div>` : ''}
+            ${x.ref ? `<div class="adk-ref">${M.esc(x.ref)}</div>` : ''}</div>`).join('')}</div>
+          <div class="adk-foot"><div class="adk-dots">${list.map(() => '<i></i>').join('')}</div><div class="adk-bar"><i data-adkbar></i></div><span class="adk-left num" data-adkleft></span></div>`;
+      }
       case 'urgent':
         return `<div class="ov-card glass"><div class="ov-tag">${T.notice}</div><div class="ov-msg">${M.esc(S.live.urgent)}</div></div>`;
       case 'disabled': {
@@ -692,7 +738,16 @@ body.nocursor{cursor:none}
     aud.volume = Math.min(1, Math.max(0, +S.adhan.volume || 0.8));
     aud.play().catch(fallback);
   }
+  function playLib(id, fallback) {
+    if (!id || !M.serverAvailable()) return fallback();
+    aud.src = M.API + '/library/' + encodeURIComponent(id);
+    aud.volume = Math.min(1, Math.max(0, +S.adhan.volume || 0.8));
+    aud.play().catch(fallback);
+  }
   function playAdhan(e) {
+    const a = S.adhan.audio || {};
+    const id = e.key === 'fajr' && a.fajr ? a.fajr : a.main;
+    if (id) return playLib(id, chime);
     const name = e.key === 'fajr' && (meta.media || {})['adhan-fajr'] ? 'adhan-fajr' : 'adhan';
     playFile(name, chime);
   }
@@ -701,7 +756,7 @@ body.nocursor{cursor:none}
     for (const e of [...days.today.events, ...days.yesterday.events]) {
       if (e.sun) continue;
       if (S.features.adhanSound && S.adhan.prayers[e.key] !== false && crossed(e.start)) playAdhan(e);
-      if (S.adhan.beepBeforeIqamah && S.features.iqamah && crossed(e.iqamah)) playFile('iqamah', beep);
+      if (S.adhan.beepBeforeIqamah && S.features.iqamah && crossed(e.iqamah)) playLib((S.adhan.audio || {}).iqamah, () => playFile('iqamah', beep));
     }
   }
 
@@ -715,6 +770,12 @@ body.nocursor{cursor:none}
       case 'test-iqamah': forced = { t: 'iq', e: Object.assign({}, ev, { iqamah: new Date(now.getTime() + 15000), jumuah: false }), until: new Date(now.getTime() + 15000) }; break;
       case 'test-salah': forced = { t: 'salah', e: ev, until: new Date(now.getTime() + 20000) }; beep(); break;
       case 'identify': forced = { t: 'identify', until: new Date(now.getTime() + 15000) }; break;
+      case 'test-adhkar': {
+        const isJ = (c.prayer || '') === 'jumuah';
+        const base = isJ ? Object.assign({}, ev, { jumuah: true }) : ev;
+        forced = { t: 'adhkar', e: base, from: now.getTime(), until: new Date(now.getTime() + 90000) };
+        break;
+      }
       case 'stop': forced = null; aud.pause(); break;
     }
     ovKey = null; tick(true);

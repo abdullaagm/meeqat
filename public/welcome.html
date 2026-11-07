@@ -182,7 +182,7 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
         <label class="field"><span>Your name</span><input id="fContact" maxlength="80" autocomplete="name" placeholder="Contact person"></label>
         <label class="field"><span>TV language</span><select id="fLang"></select></label>
       </div>
-      <label class="field"><span>Mobile number <i>(used to log in)</i></span><input id="fMobile" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98xxx xxxxx" required></label>
+      <div class="field"><span>Mobile number <i>(used to log in)</i></span><div id="fPhone"></div></div>
       <label class="field"><span>Email <i>(optional)</i></span><input id="fEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
       <div class="two">
         <label class="field"><span>Create a PIN <i>(4–12 digits)</i></span><input id="fPin" type="password" inputmode="numeric" maxlength="12" autocomplete="new-password" required></label>
@@ -214,8 +214,14 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
   let TYPE = 'masjid';
 
   // location: Country → Region → City → Area
-  const picker = MeeqatPlaces.mount($('loc'), null, (v, kind) => { if (kind !== 'area' && kind !== 'city') $('fAsr').value = v.madhab || 'shafi'; });
+  let ccTouched = false;
+  const picker = MeeqatPlaces.mount($('loc'), null, (v, kind) => {
+    if (kind !== 'area' && kind !== 'city') $('fAsr').value = v.madhab || 'shafi';
+    if (!ccTouched && v.countryCode && M.dialFor(v.countryCode)) $('fPhone').querySelector('[data-ph=cc]').value = v.countryCode;
+  });
   $('fAsr').value = picker.value.madhab || 'shafi';
+  $('fPhone').innerHTML = M.phoneHtml(M.dialFor(picker.value.countryCode) ? picker.value.countryCode : 'IN', '', 'id="fMobile" required');
+  $('fPhone').querySelector('[data-ph=cc]').addEventListener('change', () => { ccTouched = true; });
   $('fLang').innerHTML = Object.entries(M.LANGS).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
   try { const nl = (navigator.language || 'en').slice(0, 2); if (M.LANGS[nl]) $('fLang').value = nl; } catch (e) { /* */ }
 
@@ -232,9 +238,9 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
 
   $('regForm').addEventListener('submit', async (e) => {
     e.preventDefault(); $('err').classList.remove('show');
-    const name = $('fName').value.trim(), mobile = $('fMobile').value.trim(), pin = $('fPin').value.trim();
+    const name = $('fName').value.trim(), mobile = M.phoneRead($('fPhone')), pin = $('fPin').value.trim();
     if (name.length < 2) return fail('Please enter the ' + (TYPE === 'home' ? 'home' : 'masjid') + ' name.');
-    if (mobile.replace(/\D/g, '').length < 8) return fail('Please enter a valid mobile number with country code.');
+    if (mobile.replace(/\D/g, '').length < 8) return fail('Please enter a valid mobile number.');
     if (!/^\d{4,12}$/.test(pin)) return fail('PIN must be 4–12 digits.');
     if (pin !== $('fPin2').value.trim()) return fail('The two PINs do not match.');
 
