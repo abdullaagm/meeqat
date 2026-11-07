@@ -297,7 +297,7 @@ body.nocursor{cursor:none}
 (function () {
   'use strict';
   const M = Miqat, $ = (i) => document.getElementById(i);
-  const EXPLICIT = M.explicitScreenId();
+  const EXPLICIT = M.tvScreenId();
   const APP = /[?&]app=1/.test(location.search) || /MeeqatTV/.test(navigator.userAgent);
   const ID = EXPLICIT || 'main';
   const store = M.createDisplayStore(ID);
@@ -578,7 +578,7 @@ body.nocursor{cursor:none}
     if (st === 'offline') { el.textContent = T.offline; el.classList.add('show'); }
     else if (st === 'notfound') {
       el.textContent = `Screen "${ID}" not found`; el.classList.add('show', 'bad');
-      if (APP) { try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } setTimeout(() => location.replace('pair.html?app=1'), 4000); }
+      if (APP) { M.rememberTv(null); try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } setTimeout(() => location.replace('pair.html?app=1'), 4000); }
     }
     renderQr();
   }

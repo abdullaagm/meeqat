@@ -226,7 +226,7 @@ public class MainActivity extends Activity {
                 .setTitle("Link to a different masjid?")
                 .setMessage("This TV will show a new pairing code. Enter it in the phone control panel of the masjid you want.")
                 .setPositiveButton("Show code", (d, w) -> web.evaluateJavascript(
-                        "try{localStorage.removeItem('miqat:screen')}catch(e){};location.href='" + server() + "/pair.html?app=1';", null))
+                        "try{localStorage.removeItem('miqat:tv');localStorage.removeItem('miqat:screen')}catch(e){};location.href='" + server() + "/pair.html?app=1';", null))
                 .setNegativeButton("Cancel", null)
                 .show();
     }

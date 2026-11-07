@@ -82,7 +82,7 @@ ol span{color:var(--acc)}
   $('site').textContent = location.host;
 
   function goScreen(id) {
-    try { localStorage.setItem('miqat:screen', id); } catch (e) { /* */ }
+    M.rememberTv(id);
     location.replace('./?s=' + encodeURIComponent(id) + (APP ? '&app=1' : ''));
   }
   async function newCode() {

@@ -506,11 +506,19 @@
     try { return localStorage.getItem('miqat:screen') || 'main'; } catch (e) { return 'main'; }
   };
   /** Screen ID only if the URL or this device names one (no 'main' fallback). */
-  M.explicitScreenId = function () {
-    const q = new URLSearchParams(location.search).get('s');
-    if (q && /^[a-z0-9][a-z0-9-]{0,39}$/.test(q)) return q;
-    try { return localStorage.getItem('miqat:screen') || null; } catch (e) { return null; }
-  };
+  /* Two separate memories:
+   *  'miqat:tv'     — the screen a TV was paired to (TV app or /pair). Only the TV display uses it.
+   *  'miqat:screen' — the screen this phone/PC last managed in /admin. Only the control panel uses it.
+   * So opening the bare website on a phone or PC always shows the landing page. */
+  const ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  const qs = () => { const q = new URLSearchParams(location.search).get('s'); return q && ID_RE.test(q) ? q : null; };
+  const ls = (k) => { try { return localStorage.getItem(k) || null; } catch (e) { return null; } };
+  M.isTvApp = () => /[?&]app=1/.test(location.search) || /MeeqatTV/.test(navigator.userAgent);
+  /** Screen for the TV display: ?s= in the link, else the screen this TV was paired to. */
+  M.tvScreenId = () => qs() || ls('miqat:tv') || (M.isTvApp() ? ls('miqat:screen') : null);
+  M.rememberTv = (id) => { try { if (id) localStorage.setItem('miqat:tv', id); else localStorage.removeItem('miqat:tv'); } catch (e) { /* */ } };
+  /** Screen for the phone control panel: ?s= in the link, else the one last managed here. */
+  M.explicitScreenId = () => qs() || ls('miqat:screen');
   M.post = async function (path, body, headers) {
     const r = await fetch(M.API + path, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}), body: JSON.stringify(body || {}) });
     let j = {}; try { j = await r.json(); } catch (e) { /* */ }
