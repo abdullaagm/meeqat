@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+; Meeqat: let the prayer screen open in full screen by itself (Chrome and Edge).
+; Double-click, choose Yes, then restart the browser.
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\AutomaticFullscreenAllowedForUrls]
+"1"="https://meeqat.winocle.com"
+"2"="https://meeqat-production.up.railway.app"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\AutomaticFullscreenAllowedForUrls]
+"1"="https://meeqat.winocle.com"
+"2"="https://meeqat-production.up.railway.app"

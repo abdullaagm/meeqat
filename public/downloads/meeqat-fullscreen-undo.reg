@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+; Meeqat: undo automatic full screen (Chrome and Edge).
+
+[-HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\AutomaticFullscreenAllowedForUrls]
+
+[-HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge\AutomaticFullscreenAllowedForUrls]

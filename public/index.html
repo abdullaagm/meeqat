@@ -860,10 +860,20 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   function requestFull() {
     if (APP) return;                       // the Meeqat TV app is always full screen
     wantFull = true;
-    goFull().catch(() => showFullPrompt()); // browsers refuse without a key press → ask once
-    if (!isFull()) setTimeout(() => { if (!isFull()) showFullPrompt(); }, 400);
+    goFull().then(() => { if (!isFull()) setTimeout(() => { if (!isFull()) showFullPrompt(); }, 300); })
+      .catch(() => showFullPrompt());   // browsers refuse without a key press → ask once
   }
   document.addEventListener('fullscreenchange', () => { if (isFull()) hideFullPrompt(); });
+  // Chrome / Edge with "automatic full screen" allowed for this site: go full screen by itself, no key press.
+  let autoFullOK = false;
+  (async () => {
+    try {
+      const st = await navigator.permissions.query({ name: 'fullscreen', allowWithoutGesture: true });
+      autoFullOK = st.state === 'granted';
+      if (autoFullOK && !APP) setTimeout(() => goFull().catch(() => {}), 800);
+      st.onchange = () => { autoFullOK = st.state === 'granted'; };
+    } catch (e) { /* not supported by this browser */ }
+  })();
 
   function command(c) {
     if (c.tv && c.tv !== M.tvId()) return;   // command meant for another TV of this masjid
