@@ -860,8 +860,21 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   function requestFull() {
     if (APP) return;                       // the Meeqat TV app is always full screen
     wantFull = true;
-    goFull().then(() => { if (!isFull()) setTimeout(() => { if (!isFull()) showFullPrompt(); }, 300); })
-      .catch(() => showFullPrompt());   // browsers refuse without a key press → ask once
+    if (isFull()) return;
+    // Try a few times: Windows often refuses the very first request while the window is busy/animating.
+    let tries = 0;
+    const attempt = () => {
+      tries++;
+      goFull().catch(() => {}).then(() => {
+        setTimeout(() => {
+          if (isFull()) return hideFullPrompt();
+          if (tries < 4) return attempt();
+          if (!autoFullOK) showFullPrompt();      // only browsers without automatic full screen need a key press
+          else setTimeout(() => { if (!isFull()) showFullPrompt(); }, 1500);
+        }, 700);
+      });
+    };
+    attempt();
   }
   document.addEventListener('fullscreenchange', () => { if (isFull()) hideFullPrompt(); });
   // Chrome / Edge with "automatic full screen" allowed for this site: go full screen by itself, no key press.
