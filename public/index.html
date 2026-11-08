@@ -904,6 +904,7 @@ body.nocursor{cursor:none}
   layout();
   ensureCtx();
   tick(true);
+  M.autoUpdate({ every: 15 * 60000, canReload: () => !ovKey });   // never reload during adhan / salah / adhkar screens
   (async () => {
     // A bare link on a Meeqat server shows the welcome / registration page instead of someone's screen.
     if (!EXPLICIT && (await M.probe()) === 'yes') { location.replace(APP ? 'pair.html?app=1' : 'welcome.html'); return; }

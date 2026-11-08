@@ -359,6 +359,7 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
   };
   if (M.inApp() && TOKEN && MeeqatApp.setSuperToken) MeeqatApp.setSuperToken(TOKEN);
 
+  M.autoUpdate({ canReload: () => !$('modal').classList.contains('show') && !['INPUT', 'SELECT'].includes((document.activeElement || {}).tagName) });
   if (TOKEN) { show(); load(); }
 })();
 </script>

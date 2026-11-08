@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.7.0';
+  M.VERSION = '1.7.1';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -538,6 +538,23 @@
     let j = {}; try { j = await r.json(); } catch (e) { /* */ }
     if (!r.ok) throw Object.assign(new Error(j.error || 'HTTP ' + r.status), { status: r.status, data: j });
     return j;
+  };
+  /** Reload the page when a newer website version has been deployed (apps have no refresh button). */
+  M.autoUpdate = function (opts) {
+    opts = opts || {};
+    let last = 0;
+    const check = async () => {
+      if (Date.now() - last < 60000) return;
+      last = Date.now();
+      try {
+        const j = await (await fetch(M.API + '/api/info', { cache: 'no-store' })).json();
+        if (j.version && j.version !== M.VERSION && (!opts.canReload || opts.canReload())) location.reload();
+      } catch (e) { /* offline */ }
+    };
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    addEventListener('focus', check);
+    setInterval(check, opts.every || 10 * 60000);
+    setTimeout(check, 5000);
   };
   M.info = async function () { try { return await (await fetch(M.API + '/api/info', { cache: 'no-store' })).json(); } catch (e) { return {}; } };
   /* Native Meeqat Admin / Super app (window.MeeqatApp bridge) */

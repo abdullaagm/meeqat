@@ -683,6 +683,7 @@ textarea{min-height:84px;resize:vertical}
     <div class="card pad glass">
       <div class="muted">Meeqat Admin app · version <b>${esc(ai.version || '')}</b><br>Website updates appear automatically. App updates are offered here when available.</div>
       <div class="grid2" style="margin-top:12px"><button class="btn" data-act="appUpdate">⟳ Check for updates</button><button class="btn" data-act="appServer">Server address</button></div>
+      <button class="btn wide" style="margin-top:10px" data-act="reloadPage">↻ Reload</button>
     </div>`; })() : ''}
 
     <h2>Backup</h2>
@@ -790,6 +791,7 @@ textarea{min-height:84px;resize:vertical}
       }, (e) => toast(e.message));
     },
     appUpdate() { if (M.inApp()) MeeqatApp.checkUpdate(); },
+    reloadPage() { location.reload(); },
     appServer() { if (M.inApp()) MeeqatApp.changeServer(); },
     async linkTv() {
       const code = ($('linkCode').value || '').replace(/\D/g, '');
@@ -900,6 +902,7 @@ textarea{min-height:84px;resize:vertical}
     if (MODE === 'server') setSync(viewers ? `Connected · ${viewers} screen${viewers > 1 ? 's' : ''} live` : 'Connected', 'ok');
     render();
   }
+  M.autoUpdate({ every: 5 * 60000, canReload: () => !pending && !document.querySelector('.sheet') && !['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) });
   (async function init() {
     if ((await M.probe()) === 'no') { MODE = 'local'; ID = ID || 'main'; store = M.createAdminStore(ID); offlineOpen(); return; }
     M.info().then((i) => { if (i.support) $('lgHelp').textContent = 'Forgot your PIN? Contact ' + i.support; });
