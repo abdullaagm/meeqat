@@ -782,6 +782,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   setInterval(updateSoundChip, 5000);
   addEventListener('keydown', (ev) => {
     unlock();
+    if ((wantFull || ($('fullprompt') && $('fullprompt').style.display !== 'none')) && !isFull()) goFull().catch(() => {});
     if (ev.key === 's' || ev.key === 'S' || ev.key === 'ContextMenu') location.href = 'admin.html' + (ID !== 'main' ? '?s=' + ID : '');
   });
   addEventListener('pointerdown', () => {
@@ -835,11 +836,43 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   }
 
   /* ---------------- commands from phone ---------------- */
+  /* ---------------- full screen (browsers need one key press / click at the TV) ---------------- */
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  let wantFull = false;
+  function goFull() {
+    const el = document.documentElement, rq = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!rq || isFull()) { hideFullPrompt(); return Promise.resolve(); }
+    try { const p = rq.call(el); return (p && p.then ? p : Promise.resolve()).then(hideFullPrompt); } catch (e) { return Promise.reject(e); }
+  }
+  function showFullPrompt() {
+    let el = $('fullprompt');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'fullprompt';
+      el.style.cssText = 'position:fixed;inset:0;z-index:95;display:flex;align-items:center;justify-content:center;background:rgba(3,6,16,.72);cursor:pointer';
+      el.innerHTML = '<div class="glass" style="padding:5vmin 7vmin;text-align:center;border-color:var(--acc)"><div style="font-size:9vmin;line-height:1">⛶</div><div style="font-size:4.4vmin;font-weight:600;margin-top:2vmin">Press OK on the remote</div><div style="font-size:2.8vmin;color:var(--mut);margin-top:1vmin">or click anywhere to go full screen</div></div>';
+      el.onclick = () => goFull().catch(() => {});
+      document.body.appendChild(el);
+    }
+    el.style.display = 'flex';
+    clearTimeout(el._t); el._t = setTimeout(hideFullPrompt, 120000);
+  }
+  function hideFullPrompt() { const el = $('fullprompt'); if (el) el.style.display = 'none'; }
+  function requestFull() {
+    if (APP) return;                       // the Meeqat TV app is always full screen
+    wantFull = true;
+    goFull().catch(() => showFullPrompt()); // browsers refuse without a key press → ask once
+    if (!isFull()) setTimeout(() => { if (!isFull()) showFullPrompt(); }, 400);
+  }
+  document.addEventListener('fullscreenchange', () => { if (isFull()) hideFullPrompt(); });
+
   function command(c) {
+    if (c.tv && c.tv !== M.tvId()) return;   // command meant for another TV of this masjid
     const now = M.now(S);
     const ev = (days && days.today.events.find((e) => e.key === (c.prayer || 'dhuhr'))) || days.today.events[2];
     switch (c.type) {
       case 'reload': location.reload(); break;
+      case 'fullscreen': requestFull(); break;
+      case 'exit-fullscreen': wantFull = false; hideFullPrompt(); if (isFull() && document.exitFullscreen) document.exitFullscreen().catch(() => {}); break;
       case 'test-adhan': forced = { t: 'adhan', e: ev, until: new Date(now.getTime() + 25000) }; playAdhan(ev); break;
       case 'test-iqamah': forced = { t: 'iq', e: Object.assign({}, ev, { iqamah: new Date(now.getTime() + 15000), jumuah: false }), until: new Date(now.getTime() + 15000) }; break;
       case 'test-salah': forced = { t: 'salah', e: ev, until: new Date(now.getTime() + 20000) }; beep(); break;

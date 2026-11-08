@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.7.2';
+const VERSION = '1.7.3';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -596,9 +596,10 @@ async function handle(req, res) {
     if (action === 'command' && req.method === 'POST') {
       if (!auth(req, res, scr)) return;
       const b = await readJson(req);
-      const allowed = ['reload', 'test-adhan', 'test-iqamah', 'test-salah', 'test-adhkar', 'identify', 'stop'];
+      const allowed = ['reload', 'test-adhan', 'test-iqamah', 'test-salah', 'test-adhkar', 'identify', 'stop', 'fullscreen', 'exit-fullscreen'];
       if (!allowed.includes(b.type)) return json(res, 400, { error: 'Unknown command' });
-      const viewers = broadcast(id, 'command', { type: b.type, prayer: b.prayer || 'dhuhr', at: Date.now() });
+      const tv = TV_RE.test(String(b.tv || '')) ? b.tv : null;   // optional: only one TV
+      const viewers = broadcast(id, 'command', { type: b.type, prayer: b.prayer || 'dhuhr', tv, at: Date.now() });
       return json(res, 200, { ok: true, viewers });
     }
 

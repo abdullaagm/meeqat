@@ -278,7 +278,7 @@ textarea{min-height:84px;resize:vertical}
   function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2200); }
   async function cmd(type, extra) {
     if (MODE !== 'server') return toast('Needs connection to the server');
-    try { const r = await store.command(type, extra); toast(r.viewers ? `Sent to ${r.viewers} screen${r.viewers > 1 ? 's' : ''}` : 'No TV connected right now'); }
+    try { const r = await store.command(type, extra); toast(!r.viewers ? 'No TV connected right now' : extra && extra.tv ? 'Sent to the TV' : `Sent to ${r.viewers} screen${r.viewers > 1 ? 's' : ''}`); }
     catch (e) { toast(e.message); }
   }
 
@@ -410,6 +410,8 @@ textarea{min-height:84px;resize:vertical}
         <button class="btn" data-act="cmd" data-c="test-iqamah" ${local ? 'disabled' : ''}>⏱ Test iqamah</button>
         <button class="btn" data-act="cmd" data-c="test-salah" ${local ? 'disabled' : ''}>🤲 Test salah screen</button>
         <button class="btn" data-act="cmd" data-c="test-adhkar" ${local ? 'disabled' : ''}>📿 Test adhkar</button>
+        <button class="btn pri" data-act="cmd" data-c="fullscreen" ${local ? 'disabled' : ''}>⛶ Full screen (all TVs)</button>
+        <button class="btn" data-act="cmd" data-c="exit-fullscreen" ${local ? 'disabled' : ''}>Exit full screen</button>
         <button class="btn" data-act="cmd" data-c="identify" ${local ? 'disabled' : ''}>🆔 Identify TV</button>
         <button class="btn" data-act="cmd" data-c="stop" ${local ? 'disabled' : ''}>⏹ Stop test/sound</button>
         <button class="btn" data-act="cmd" data-c="reload" ${local ? 'disabled' : ''}>🔄 Reload TV</button>
@@ -516,7 +518,8 @@ textarea{min-height:84px;resize:vertical}
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><i class="dot ${t.online ? 'on' : ''}"></i><span style="color:#fff">${t.online ? 'Online' : 'Offline'}</span><span class="muted" style="margin-left:auto;font-size:12px">${t.lastSeen ? 'seen ' + new Date(t.lastSeen).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</span></div>
         <div class="two" style="grid-template-columns:1fr 1fr auto"><input type="text" value="${esc(t.name)}" maxlength="40" data-tvname="${esc(t.id)}">
         <select data-tvsec="${esc(t.id)}"><option value="">All sections</option>${secs.map((x) => `<option value="${esc(x.id)}" ${x.id === t.section ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-        <button class="btn sm bad" data-act="tvForget" data-tv="${esc(t.id)}" title="Forget this TV">✕</button></div></div>`).join('');
+        <button class="btn sm bad" data-act="tvForget" data-tv="${esc(t.id)}" title="Forget this TV">✕</button></div>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn sm" data-act="tvCmd" data-c="fullscreen" data-tv="${esc(t.id)}" ${t.online ? '' : 'disabled'}>⛶ Full screen</button><button class="btn sm" data-act="tvCmd" data-c="identify" data-tv="${esc(t.id)}" ${t.online ? '' : 'disabled'}>🆔 Identify</button><button class="btn sm" data-act="tvCmd" data-c="reload" data-tv="${esc(t.id)}" ${t.online ? '' : 'disabled'}>↻ Reload</button></div></div>`).join('');
     } catch (e) { box.textContent = e.message; }
   }
   document.addEventListener('change', async (e) => {
@@ -782,6 +785,7 @@ textarea{min-height:84px;resize:vertical}
       S.sections.splice(+t.dataset.i, 1); changed(); render();
     },
     tvsLoad() { loadTvs(); },
+    tvCmd(t) { cmd(t.dataset.c, { tv: t.dataset.tv }); },
     async tvForget(t) { if (!confirm('Forget this TV? It stays linked if it is still open; it will appear again next time it connects.')) return; try { await store.forgetTv(t.dataset.tv); loadTvs(); } catch (e) { toast(e.message); } },
     scanTv() {
       M.scanQR(async (text) => {
