@@ -125,6 +125,11 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
   <a class="btn sm pri" href="#register">Register free</a>
 </div></nav>
 
+<div id="tvBanner" class="hide" style="background:rgba(243,201,107,.12);border-bottom:1px solid rgba(243,201,107,.3)"><div class="wrap" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:12px;padding-bottom:12px">
+  <span style="flex:1;min-width:220px">📺 This browser is linked as a TV screen for <b id="tvName">your masjid</b>.</span>
+  <a class="btn sm pri" id="tvOpen" href="./">Open TV screen</a><button class="btn sm" id="tvUnlink" type="button">Unlink this browser</button>
+</div></div>
+
 <header class="hero"><div class="wrap">
   <div>
     <span class="eyebrow">🕌 For masjids & homes · <span class="ar">مِيقَات</span></span>
@@ -328,6 +333,14 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
     if (j && j.version) $('apkInfo').textContent = `Version ${j.version} · ${(j.size / 1048576).toFixed(1)} MB · for Android TV, Google TV, Fire TV Stick and Android tablets (Android 5+).`;
     else { $('apkBtn').classList.remove('pri'); $('apkBtn').textContent = 'TV app coming soon'; $('apkBtn').removeAttribute('href'); }
   }).catch(() => {});
+  (function () {
+    let tvId = null; try { tvId = localStorage.getItem('miqat:tv'); } catch (e) { /* */ }
+    if (!tvId) return;
+    $('tvBanner').classList.remove('hide');
+    $('tvOpen').href = './?s=' + encodeURIComponent(tvId);
+    fetch(M.API + '/api/screens/' + encodeURIComponent(tvId), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((j) => { if (j) $('tvName').textContent = (j.settings && j.settings.general && j.settings.general.masjidName) || j.name; }).catch(() => {});
+    $('tvUnlink').onclick = () => { M.rememberTv(null); $('tvBanner').classList.add('hide'); toast('Unlinked — this browser will show the website'); };
+  })();
   M.info().then((i) => {
     if (i.support) $('support').textContent = ' · Help: ' + i.support;
     if (i.registration === 'closed') { $('regForm').innerHTML = `<p style="margin:0">Registration is currently closed.${i.support ? ' Please contact ' + esc(i.support) + '.' : ''}</p>`; }

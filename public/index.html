@@ -232,6 +232,10 @@ body.nocursor{cursor:none}
 .adk-meta{display:flex;gap:1.4vmin;align-items:center;flex-wrap:wrap;margin-top:.3vmin}
 .adk-cnt2{flex:none;font-size:calc(2.5vmin*var(--k));font-weight:600;color:var(--acc);background:var(--accA);border:1.5px solid var(--acc);border-radius:99px;padding:.15vmin 1.4vmin;direction:ltr}
 .adk-tr2{font-size:calc(1.9vmin*var(--k));color:var(--mut);line-height:1.35;flex:1;min-width:30%;text-align:start}
+.hovermenu{position:fixed;z-index:85;left:2vmin;bottom:2vmin;display:none;gap:1vmin;font-size:1.6vmin}
+body:not(.nocursor) .hovermenu.can{display:flex}
+.hovermenu a{color:#fff;text-decoration:none;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.9vmin 1.8vmin}
+.hovermenu a:hover{border-color:var(--acc);color:var(--acc)}
 .soundchip{position:fixed;z-index:80;right:2.4vmin;bottom:2.4vmin;display:none;padding:1.4vmin 2.6vmin;border-radius:999px;font-size:2vmin;background:rgba(0,0,0,.6);border:1px solid var(--acc);color:#fff}
 .soundchip.show{display:block}
 [dir=rtl] .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
@@ -296,6 +300,7 @@ body.nocursor{cursor:none}
 <div id="overlay" class="overlay"></div>
 <div id="dim"></div>
 <div id="soundchip" class="soundchip"></div>
+<div id="hovermenu" class="hovermenu"><a href="welcome.html">⌂ Meeqat home</a><a href="admin.html" id="hmAdmin">⚙ Control panel</a><a href="#" id="hmUnlink">⨯ Unlink this browser</a></div>
 <audio id="aud" preload="auto"></audio>
 
 <script src="vendor/adhan.min.js"></script>
@@ -904,10 +909,24 @@ body.nocursor{cursor:none}
   layout();
   ensureCtx();
   tick(true);
+  if (!APP) {
+    $('hovermenu').classList.add('can');
+    $('hmAdmin').href = 'admin.html?s=' + encodeURIComponent(ID);
+    $('hmUnlink').onclick = (ev) => { ev.preventDefault(); M.rememberTv(null); location.replace('welcome.html'); };
+    let linked = null; try { linked = localStorage.getItem('miqat:tv'); } catch (e) { /* */ }
+    if (!linked) $('hmUnlink').style.display = 'none';
+    // show the cursor + small menu for a few seconds whenever the mouse moves
+    addEventListener('mousemove', () => {
+      document.body.classList.remove('nocursor');
+      clearTimeout(window.__cur); window.__cur = setTimeout(() => document.body.classList.add('nocursor'), 4000);
+    });
+  }
   M.autoUpdate({ every: 15 * 60000, canReload: () => !ovKey });   // never reload during adhan / salah / adhkar screens
   (async () => {
     // A bare link on a Meeqat server shows the welcome / registration page instead of someone's screen.
     if (!EXPLICIT && (await M.probe()) === 'yes') { location.replace(APP ? 'pair.html?app=1' : 'welcome.html'); return; }
+    // A laptop/PC linked as a TV earlier: the plain website address shows the landing page (with a shortcut back to the screen).
+    if (M.tvFromMemory() && M.isDesktop() && (await M.probe()) === 'yes') { location.replace('welcome.html?linked=1'); return; }
     store.start();
   })();
 })();

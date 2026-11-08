@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.7.1';
+  M.VERSION = '1.7.2';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -530,6 +530,10 @@
   M.isTvApp = () => /[?&]app=1/.test(location.search) || /MeeqatTV/.test(navigator.userAgent);
   /** Screen for the TV display: ?s= in the link, else the screen this TV was paired to. */
   M.tvScreenId = () => qs() || ls('miqat:tv') || (M.isTvApp() ? ls('miqat:screen') : null);
+  /** True when the screen comes only from this browser's TV memory (no ?s= in the link). */
+  M.tvFromMemory = () => !qs() && !!ls('miqat:tv');
+  /** Laptop / desktop with a mouse (not a TV, not the TV app). */
+  M.isDesktop = () => !M.isTvApp() && !!(g.matchMedia && g.matchMedia('(pointer:fine)').matches) && !/Android TV|AFT|BRAVIA|SMART-TV|SmartTV|Tizen|Web0S|webOS|CrKey|GoogleTV/i.test(navigator.userAgent);
   M.rememberTv = (id) => { try { if (id) localStorage.setItem('miqat:tv', id); else localStorage.removeItem('miqat:tv'); } catch (e) { /* */ } };
   /** Screen for the phone control panel: ?s= in the link, else the one last managed here. */
   M.explicitScreenId = () => qs() || ls('miqat:screen');
