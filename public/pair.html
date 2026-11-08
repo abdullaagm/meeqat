@@ -88,7 +88,7 @@ ol span{color:var(--acc)}
   async function newCode() {
     clearInterval(poll);
     try {
-      const j = await M.post('/api/pair', {});
+      const j = await M.post('/api/pair', { tv: M.tvId() });
       code = j.code; token = j.token; exp = j.exp;
       $('code').innerHTML = code.split('').map((d) => `<b>${d}</b>`).join('');
       const origin = location.origin + location.pathname.replace(/[^/]*$/, '');

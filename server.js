@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -208,6 +208,29 @@ function cleanOwner(b, old) {
 function allScreens() {
   return fs.readdirSync(SCREENS).filter((f) => f.endsWith('.json')).map((f) => load(f.slice(0, -5))).filter(Boolean);
 }
+/* ---------- TVs of a screen (each TV device has its own random id + section) ---------- */
+const TV_RE = /^[a-z0-9]{8,32}$/;
+function tvList(id, scr) {
+  const live = new Set([...(clients.get(id) || [])].map((r) => r.tvId).filter(Boolean));
+  return Object.entries(scr.tvs || {}).map(([tid, t]) => ({ id: tid, name: t.name, section: t.section || '', added: t.added, lastSeen: t.lastSeen || null, online: live.has(tid) }))
+    .sort((a, b) => (a.added || 0) - (b.added || 0));
+}
+/** Register / refresh a TV that is showing this screen. Returns its record. */
+function seenTv(scr, tid, ua) {
+  if (!TV_RE.test(String(tid || ''))) return null;
+  scr.tvs = scr.tvs || {};
+  const now = Date.now();
+  let t = scr.tvs[tid], dirty = false;
+  if (!t) {
+    if (Object.keys(scr.tvs).length >= 50) return null;
+    t = scr.tvs[tid] = { name: 'TV ' + (Object.keys(scr.tvs).length + 1), section: '', added: now, ua: String(ua || '').slice(0, 120) };
+    dirty = true;
+  }
+  if (!t.lastSeen || now - t.lastSeen > 600000) { t.lastSeen = now; dirty = true; } else t.lastSeen = now;
+  if (dirty) save(scr.id, scr);
+  return t;
+}
+
 /* last time a TV fetched or streamed — persisted at most every 10 min */
 const seen = new Map();
 function touch(id, scr) {
@@ -455,7 +478,8 @@ async function handle(req, res) {
     list.push(now); pairRate.set(ip, list);
     let code; do { code = String(crypto.randomInt(100000, 1000000)); } while (pairs.has(code));
     const token = crypto.randomBytes(16).toString('hex');
-    pairs.set(code, { token, id: null, exp: now + 20 * 60000, ip });
+    let pb = {}; try { pb = await readJson(req); } catch (e) { /* no body */ }
+    pairs.set(code, { token, id: null, exp: now + 20 * 60000, ip, tv: TV_RE.test(String(pb.tv || '')) ? pb.tv : null });
     return json(res, 201, { ok: true, code, token, exp: now + 20 * 60000 });
   }
   let pm = /^\/api\/pair\/(\d{6})$/.exec(p);
@@ -477,19 +501,26 @@ async function handle(req, res) {
   let m = /^\/media\/([a-z0-9-]+)\/([a-z-]+)$/.exec(p);
   if (m && (req.method === 'GET' || req.method === 'HEAD')) return serveMedia(req, res, m[1], m[2]);
 
-  m = /^\/api\/screens\/([a-z0-9-]+)(?:\/([a-z]+))?(?:\/([a-z-]+))?$/.exec(p);
+  m = /^\/api\/screens\/([a-z0-9-]+)(?:\/([a-z]+))?(?:\/([a-z0-9-]+))?$/.exec(p);
   if (m) {
     const [, id, action, sub] = m;
     const scr = load(id);
     if (!scr) return json(res, 404, { error: 'Screen not found: ' + id });
     if (scr.disabled && action !== 'events') return json(res, 403, { error: 'This screen has been disabled by the administrator.' + (SUPPORT ? ' Contact: ' + SUPPORT : ''), disabled: true, support: SUPPORT });
 
-    if (!action && req.method === 'GET') { touch(id, scr); return json(res, 200, publicScreen(id, scr)); }
+    if (!action && req.method === 'GET') {
+      touch(id, scr);
+      const tid = url.searchParams.get('tv');
+      const t = tid ? seenTv(scr, tid, req.headers['user-agent']) : null;
+      return json(res, 200, Object.assign(publicScreen(id, scr), t ? { tv: { id: tid, name: t.name, section: t.section || '' } } : {}));
+    }
 
     if (action === 'events' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': corsOrigin(req), 'Vary': 'Origin' });
       res.write(`retry: 5000\nevent: hello\ndata: ${JSON.stringify({ rev: scr.rev, now: Date.now() })}\n\n`);
       if (!clients.has(id)) clients.set(id, new Set());
+      const tid = url.searchParams.get('tv');
+      if (tid && TV_RE.test(tid)) { res.tvId = tid; seenTv(scr, tid, req.headers['user-agent']); }
       clients.get(id).add(res);
       touch(id, scr);
       req.on('close', () => { const s = clients.get(id); if (s) s.delete(res); });
@@ -523,8 +554,35 @@ async function handle(req, res) {
       const pr = pairs.get(String(b.code || '').replace(/\D/g, ''));
       if (!pr || pr.exp < Date.now()) return json(res, 404, { error: 'Code not found or expired. Check the code on the TV.' });
       pr.id = id;
+      if (pr.tv) {
+        const sections = ((scr.settings || {}).sections || []).map((x) => x.id);
+        const t = seenTv(scr, pr.tv, '');
+        if (t) {
+          if (b.name) t.name = String(b.name).trim().slice(0, 40) || t.name;
+          if (b.section !== undefined) t.section = sections.includes(b.section) ? b.section : '';
+          save(id, scr);
+        }
+      }
       console.log(`  ~ TV linked to "${scr.name}" (${id})`);
       return json(res, 200, { ok: true });
+    }
+
+    if (action === 'tvs') {
+      if (!auth(req, res, scr)) return;
+      if (req.method === 'GET' && !sub) return json(res, 200, { ok: true, tvs: tvList(id, scr) });
+      if (sub && scr.tvs && scr.tvs[sub]) {
+        if (req.method === 'DELETE') { delete scr.tvs[sub]; save(id, scr); return json(res, 200, { ok: true }); }
+        if (req.method === 'PUT') {
+          const b = await readJson(req);
+          const t = scr.tvs[sub];
+          if (b.name !== undefined) t.name = String(b.name).trim().slice(0, 40) || t.name;
+          if (b.section !== undefined) { const ok = ((scr.settings || {}).sections || []).some((x) => x.id === b.section); t.section = ok ? b.section : ''; }
+          save(id, scr);
+          broadcast(id, 'settings', { rev: scr.rev, tv: sub });
+          return json(res, 200, { ok: true });
+        }
+      }
+      return json(res, 404, { error: 'TV not found' });
     }
 
     if (action === 'pin' && req.method === 'POST') {

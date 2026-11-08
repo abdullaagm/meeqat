@@ -223,6 +223,15 @@ body.nocursor{cursor:none}
 .adk-bar{flex:1;height:.7vmin;border-radius:1vmin;background:rgba(255,255,255,.12);overflow:hidden}
 .adk-bar i{display:block;height:100%;width:0;background:var(--acc);transition:width 1s linear}
 .adk-left{font-size:2.6vmin;color:var(--mut);min-width:9vmin;text-align:end}
+.adk-pg{font-size:2.6vmin;color:var(--acc);margin-inline-start:2vmin}
+.adk-board{position:relative;flex:1;width:100%;margin:2.2vmin 0 1.6vmin;--k:1}
+.adk-page{position:absolute;inset:0;column-gap:3vmin;column-fill:auto;opacity:0;transition:opacity .9s;overflow:hidden}
+.adk-page.on{opacity:1}
+.adk-card{break-inside:avoid;-webkit-column-break-inside:avoid;page-break-inside:avoid;display:block;padding:calc(1.3vmin*var(--k)) calc(2vmin*var(--k));margin:0 0 calc(1.4vmin*var(--k));border-radius:1.6vmin;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.adk-ar2{font-size:calc(4vmin*var(--k));line-height:1.8;color:#fff;text-align:right}
+.adk-meta{display:flex;gap:1.4vmin;align-items:center;flex-wrap:wrap;margin-top:.3vmin}
+.adk-cnt2{flex:none;font-size:calc(2.5vmin*var(--k));font-weight:600;color:var(--acc);background:var(--accA);border:1.5px solid var(--acc);border-radius:99px;padding:.15vmin 1.4vmin;direction:ltr}
+.adk-tr2{font-size:calc(1.9vmin*var(--k));color:var(--mut);line-height:1.35;flex:1;min-width:30%;text-align:start}
 .soundchip{position:fixed;z-index:80;right:2.4vmin;bottom:2.4vmin;display:none;padding:1.4vmin 2.6vmin;border-radius:999px;font-size:2vmin;background:rgba(0,0,0,.6);border:1px solid var(--acc);color:#fff}
 .soundchip.show{display:block}
 [dir=rtl] .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
@@ -351,9 +360,11 @@ body.nocursor{cursor:none}
     stage.style.transform = `translate(calc(-50% + ${burn[0]}px), calc(-50% + ${burn[1]}px)) scale(${k})`;
     tableSig = ''; tickerSig = '';
   }
-  addEventListener('resize', () => { layout(); tick(true); });
+  addEventListener('resize', () => { layout(); ovKey = null; tick(true); });
 
   /* ---------------- helpers ---------------- */
+  const SEC = () => ((meta && meta.tv && meta.tv.section) || '');
+  const secName = (id) => ((S.sections || []).find((x) => x.id === id) || {}).name || id;
   const nameOf = (e) => (e.jumuah ? T.p.jumuah : T.p[e.key]);
   const arOf = (e) => (e.jumuah ? M.AR_PRAYER.jumuah : M.AR_PRAYER[e.key]);
   const showAr = () => S.general.showArabic && S.general.lang !== 'ar';
@@ -510,7 +521,7 @@ body.nocursor{cursor:none}
     const el = $('strip');
     const slides = [];
     if (ramadanActive(p)) slides.push({ type: 'ram' });
-    if (S.features.ayah) (S.ayahs || []).filter((a) => a.on !== false && (a.ar || a.tr)).forEach((a) => slides.push({ type: 'ayah', a }));
+    if (S.features.ayah) (S.ayahs || []).filter((a) => a.on !== false && (a.ar || a.tr) && M.forSection(a, SEC())).forEach((a) => slides.push({ type: 'ayah', a }));
     if (!slides.length) { el.classList.add('hide'); stripSig = ''; return; }
     el.classList.remove('hide');
     const dur = Math.max(10, +S.display.ayahSeconds || 45) * 1000;
@@ -545,7 +556,7 @@ body.nocursor{cursor:none}
   function renderTicker(p) {
     const el = $('ticker');
     const today = M.dayKey(p);
-    const items = S.features.announcements ? (S.announcements || []).filter((a) => a.on !== false && a.text && (!a.from || a.from <= today) && (!a.to || a.to >= today)) : [];
+    const items = S.features.announcements ? (S.announcements || []).filter((a) => a.on !== false && a.text && (!a.from || a.from <= today) && (!a.to || a.to >= today) && M.forSection(a, SEC())) : [];
     if (!items.length) { el.classList.add('hide'); tickerSig = ''; return; }
     el.classList.remove('hide');
     const sig = items.map((a) => a.text).join('\u0001') + '|' + S.display.tickerSpeed + portrait;
@@ -598,7 +609,7 @@ body.nocursor{cursor:none}
     if (S.live.blank) return { t: 'blank' };
     if (forced && now < forced.until) return forced;
     if (forced && now >= forced.until) forced = null;
-    if (S.live.urgent && (!S.live.urgentUntil || now < S.live.urgentUntil)) return { t: 'urgent' };
+    if (S.live.urgent && (!S.live.urgentUntil || now < S.live.urgentUntil) && M.forSection({ sections: S.live.urgentSections }, SEC())) return { t: 'urgent' };
     const F = S.features, rank = { salah: 4, khutbah: 3, iq: 2, adhan: 1, adhkar: 0 };
     let best = null;
     const consider = (t, e) => { if (!best || rank[t] > rank[best.t]) best = { t, e }; };
@@ -611,7 +622,7 @@ body.nocursor{cursor:none}
       if (F.adhanOverlay && !e.jumuah && S.adhan.prayers[e.key] !== false && now >= e.start && now < e.start.getTime() + (+S.adhan.overlayMinutes || 3) * 60000) consider('adhan', e);
       if (F.adhkar && e.adhkarAt) {
         const k = e.jumuah ? 'jumuah' : e.key, mins = +((S.adhkar.minutes || {})[k]) || 0;
-        if (mins > 0 && now >= e.adhkarAt && now < e.adhkarAt.getTime() + mins * 60000 && M.adhkarFor(S, k).length) {
+        if (mins > 0 && now >= e.adhkarAt && now < e.adhkarAt.getTime() + mins * 60000 && M.adhkarFor(S, k, SEC()).length) {
           if (!best || rank.adhkar > rank[best.t]) best = { t: 'adhkar', e, from: e.adhkarAt.getTime(), until: e.adhkarAt.getTime() + mins * 60000 };
         }
       }
@@ -628,6 +639,7 @@ body.nocursor{cursor:none}
       else {
         el.classList.add('show', 'ov-' + st.t);
         el.innerHTML = overlayHtml(st);
+        if (st.t === 'adhkar') layoutAdhkarBoard(el, st);
       }
     }
     if (!st) return;
@@ -637,9 +649,57 @@ body.nocursor{cursor:none}
     if (ck) ck.textContent = M.fmtHM(now, S);
     if (st.t === 'adhkar') updateAdhkar(el, st, now);
   }
+  /* "All together" adhkar: every dhikr on one board, split into pages only if needed. */
+  function layoutAdhkarBoard(el, st) {
+    const board = el.querySelector('[data-adkboard]'); if (!board) return;
+    const e = st.e, k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k, SEC());
+    const tr = S.adhkar.showTranslation !== false;
+    const W = board.clientWidth, H = board.clientHeight;
+    const cols = W > H * 1.15 && list.length > 2 ? 2 : 1;
+    const card = (x) => `<div class="adk-card"><div class="adk-ar2 ar">${M.esc(x.ar)}</div>${(+x.count > 1 || (tr && x.tr)) ? `<div class="adk-meta">${+x.count > 1 ? `<span class="adk-cnt2">×${M.digits(+x.count, S)}</span>` : ''}${tr && x.tr ? `<span class="adk-tr2" dir="auto">${M.esc(x.tr)}</span>` : ''}</div>` : ''}</div>`;
+    const paginate = () => {
+      board.innerHTML = '';
+      const pages = [];
+      let page = null;
+      const newPage = () => { page = document.createElement('div'); page.className = 'adk-page'; page.style.columnCount = cols; board.appendChild(page); pages.push(page); };
+      newPage();
+      for (const x of list) {
+        page.insertAdjacentHTML('beforeend', card(x));
+        if (page.scrollWidth > page.clientWidth + 2 && page.children.length > 1) {
+          const last = page.lastElementChild; page.removeChild(last);
+          newPage(); page.appendChild(last);
+        }
+      }
+      return pages;
+    };
+    let pages = [], best = null;
+    for (const sc of [1.35, 1.2, 1.08, 0.96, 0.86, 0.76, 0.68]) {
+      board.style.setProperty('--k', sc);
+      pages = paginate();
+      if (!best || pages.length < best.n) best = { sc, n: pages.length };
+      if (pages.length === 1) break;
+    }
+    if (pages.length !== 1) {
+      // could not fit on one page: use the largest size that gives the fewest pages
+      for (const sc of [1.2, 1.08, 0.96, 0.86, 0.76, 0.68]) { board.style.setProperty('--k', sc); pages = paginate(); if (pages.length <= best.n) break; }
+    }
+    el._adkPages = pages;
+    const dots = el.querySelector('.adk-dots');
+    if (dots) dots.innerHTML = pages.length > 1 ? pages.map(() => '<i></i>').join('') : '';
+  }
   function updateAdhkar(el, st, now) {
-    const items = el.querySelectorAll('[data-adk]'), n = items.length; if (!n) return;
     const total = st.until - st.from, elapsed = Math.max(0, now - st.from);
+    if (el._adkPages && el.querySelector('[data-adkboard]')) {
+      const pages = el._adkPages, n = pages.length, per = M.pageMs(S);
+      const idx = n > 1 ? Math.floor(elapsed / per) % n : 0;
+      pages.forEach((x, i) => x.classList.toggle('on', i === idx));
+      el.querySelectorAll('.adk-dots i').forEach((x, i) => x.classList.toggle('on', i === idx));
+      const pg = el.querySelector('[data-adkpg]'); if (pg) pg.textContent = n > 1 ? M.digits(`${idx + 1} / ${n}`, S) : '';
+      el.querySelector('[data-adkbar]').style.width = Math.min(100, (elapsed / total) * 100).toFixed(2) + '%';
+      el.querySelector('[data-adkleft]').textContent = M.fmtDuration(st.until - now + 999, S);
+      return;
+    }
+    const items = el.querySelectorAll('[data-adk]'), n = items.length; if (!n) return;
     const per = Math.max(12000, total / n);
     const idx = Math.floor(elapsed / per) % n;
     items.forEach((x, i) => x.classList.toggle('on', i === idx));
@@ -668,7 +728,12 @@ body.nocursor{cursor:none}
       case 'khutbah':
         return `<div class="calm">${ICON.mic}<div class="s1">${T.khutbahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الخطبة — الرجاء الإنصات</div>' : ''}<div class="s3">${T.listenSilently} · ${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
       case 'adhkar': {
-        const k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k);
+        const k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k, SEC());
+        if (S.adhkar.style !== 'single') {
+          return `<div class="adk-top"><span class="ov-k">${T.adhkar} · ${M.esc(nameOf(e))}</span><span class="adk-pg num" data-adkpg></span></div>
+            <div class="adk-board" data-adkboard dir="rtl"></div>
+            <div class="adk-foot"><div class="adk-dots"></div><div class="adk-bar"><i data-adkbar></i></div><span class="adk-left num" data-adkleft></span></div>`;
+        }
         const size = (t) => { const n = (t || '').length; return n < 25 ? 11 : n < 60 ? 8 : n < 120 ? 6.2 : n < 220 ? 4.8 : n < 360 ? 3.9 : 3.3; };
         return `<div class="adk-top"><span class="ov-k">${T.adhkar} · ${M.esc(nameOf(e))}</span></div>
           <div class="adk-stage">${list.map((x, i) => `<div class="adk-item" data-adk="${i}">
@@ -687,7 +752,7 @@ body.nocursor{cursor:none}
       case 'pending':
         return `<div class="ov-card glass"><div class="ov-tag">Meeqat</div><div class="ov-msg">Waiting for approval</div><div class="ov-sub">${M.esc(S.general.masjidName || '')} · ${M.esc(ID)}</div><div class="ov-sub" style="font-size:2.6vmin">This screen will start automatically once the administrator approves it.</div></div>`;
       case 'identify':
-        return `<div class="ov-card glass"><div class="ov-tag">Screen ID</div><div class="ov-msg" style="font-size:12vmin">${M.esc(ID)}</div><div class="ov-sub">${M.esc(location.host || 'local')}</div></div>`;
+        return `<div class="ov-card glass"><div class="ov-tag">Screen ID</div><div class="ov-msg" style="font-size:12vmin">${M.esc(ID)}</div>${meta.tv ? `<div class="ov-sub"><b>${M.esc(meta.tv.name || '')}</b>${SEC() ? ' · ' + M.esc(secName(SEC())) : ' · All sections'}</div>` : ''}<div class="ov-sub">${M.esc(location.host || 'local')}</div></div>`;
       default: return '';
     }
   }

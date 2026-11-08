@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.6.0';
+  M.VERSION = '1.7.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -44,6 +44,8 @@
     adhkar: {
       minutes: { fajr: 15, dhuhr: 10, asr: 10, maghrib: 15, isha: 10, jumuah: 10 },
       showTranslation: true,
+      style: 'all',          // 'all' = every dhikr on one screen (split into pages if needed) · 'single' = one at a time
+      pageEvery: 60, pageUnit: 'sec', // how long each page stays when the adhkar need more than one page
       list: null // null = standard starter list (M.STD_ADHKAR)
     },
     salah: { countdownSeconds: 60, minutes: { fajr: 10, dhuhr: 10, asr: 10, maghrib: 8, isha: 12, jumuah: 15 } },
@@ -53,7 +55,8 @@
       nightFrom: '23:00', nightTo: '04:30', nightLevel: 0.45, ayahSeconds: 45, tickerSpeed: 90
     },
     clock: { followServer: false, offsetMs: 0, adjustMin: 0 },
-    live: { urgent: '', urgentUntil: 0, blank: false },
+    live: { urgent: '', urgentUntil: 0, urgentSections: [], blank: false },
+    sections: [], // e.g. [{ id: 'gents', name: 'Gents hall' }, { id: 'ladies', name: 'Ladies section' }]
     announcements: [
       { id: 'a1', text: 'Welcome to the masjid. Please keep the prayer hall clean and silent.', from: '', to: '', on: true }
     ],
@@ -94,7 +97,18 @@
   M.ADHKAR_KEYS = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha', 'jumuah'];
   M.adhkarList = (s) => (Array.isArray(s.adhkar && s.adhkar.list) ? s.adhkar.list : M.clone(M.STD_ADHKAR));
   /** Adhkar to show after a given prayer ('jumuah' on Fridays). */
-  M.adhkarFor = (s, key) => M.adhkarList(s).filter((x) => x.on !== false && (x.ar || x.tr) && x.prayers && x.prayers[key]);
+  M.adhkarFor = (s, key, section) => M.adhkarList(s).filter((x) => x.on !== false && (x.ar || x.tr) && x.prayers && x.prayers[key] && M.forSection(x, section));
+  /** Content targeting: no sections chosen = every TV; otherwise only TVs in those sections. */
+  M.forSection = (item, section) => !item || !Array.isArray(item.sections) || !item.sections.length || (!!section && item.sections.includes(section));
+  /** This TV's own random id (kept in the TV's browser / app). */
+  M.tvId = function () {
+    try {
+      let t = localStorage.getItem('miqat:tvid');
+      if (!t || !/^[a-z0-9]{8,32}$/.test(t)) { t = Array.from(crypto.getRandomValues(new Uint8Array(8))).map((b) => b.toString(16).padStart(2, '0')).join(''); localStorage.setItem('miqat:tvid', t); }
+      return t;
+    } catch (e) { return ''; }
+  };
+  M.pageMs = (s) => Math.max(5000, (+s.adhkar.pageEvery || 60) * (s.adhkar.pageUnit === 'min' ? 60000 : 1000));
 
   /* Telephone dial codes (ISO, code). Default follows the chosen country. */
   M.DIAL = [['IN', '91'], ['AE', '971'], ['SA', '966'], ['QA', '974'], ['OM', '968'], ['KW', '965'], ['BH', '973'], ['PK', '92'], ['BD', '880'], ['LK', '94'], ['MV', '960'], ['NP', '977'],
@@ -600,17 +614,18 @@
       if (pr === 'no') { setStatus('local'); useCache(); return; }
       if (pr === 'yes' && !es) connect();
       try {
-        const r = await fetch(M.API + '/api/screens/' + id, { cache: 'no-store' });
+        const tv = M.tvId();
+        const r = await fetch(M.API + '/api/screens/' + id + (tv ? '?tv=' + tv : ''), { cache: 'no-store' });
         if (r.status === 404) { setStatus('notfound'); useCache(); return; }
         if (r.status === 403) { let j = {}; try { j = await r.json(); } catch (e) { /* */ } L.disabled = j; setStatus('disabled'); useCache(); return; }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const j = await r.json();
         setStatus('online');
-        const metaSig = JSON.stringify(j.media || {});
+        const metaSig = JSON.stringify(j.media || {}) + JSON.stringify(j.tv || {});
         const c = M.readCache(id);
-        if (first || j.rev !== rev || !c || JSON.stringify((c.meta || {}).media || {}) !== metaSig || !!(c.meta || {}).pending !== !!j.pending) {
+        if (first || j.rev !== rev || !c || JSON.stringify((c.meta || {}).media || {}) + JSON.stringify((c.meta || {}).tv || {}) !== metaSig || !!(c.meta || {}).pending !== !!j.pending) {
           first = false; rev = j.rev;
-          const meta = { name: j.name, media: j.media || {}, id, pending: !!j.pending };
+          const meta = { name: j.name, media: j.media || {}, id, pending: !!j.pending, tv: j.tv || null };
           M.writeCache(id, { rev, settings: j.settings, meta });
           emit(j.settings, meta);
         }
@@ -622,7 +637,8 @@
     function connect() {
       if (es || M._probe !== 'yes' || !g.EventSource) return;
       try {
-        es = new EventSource(M.API + '/api/screens/' + id + '/events');
+        const tv = M.tvId();
+        es = new EventSource(M.API + '/api/screens/' + id + '/events' + (tv ? '?tv=' + tv : ''));
         es.addEventListener('hello', () => { setStatus('online'); refresh(); });
         es.addEventListener('settings', () => refresh());
         es.addEventListener('command', (e) => { try { const c = JSON.parse(e.data); L.command.forEach((f) => f(c)); } catch (x) { /* */ } });
@@ -658,7 +674,10 @@
       async fetch() { const r = await fetch(M.API + `/api/screens/${id}`, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); },
       async save(settings, name, owner) { return api('PUT', `/api/screens/${id}/settings`, { settings, name, owner }); },
       async command(type, extra) { return api('POST', `/api/screens/${id}/command`, Object.assign({ type }, extra || {})); },
-      async link(code) { return api('POST', `/api/screens/${id}/link`, { code }); },
+      async link(code, section, name) { return api('POST', `/api/screens/${id}/link`, { code, section, name }); },
+      async tvs() { return (await api('GET', `/api/screens/${id}/tvs`)).tvs; },
+      async updateTv(tv, data) { return api('PUT', `/api/screens/${id}/tvs/${tv}`, data); },
+      async forgetTv(tv) { return api('DELETE', `/api/screens/${id}/tvs/${tv}`); },
       async changePin(newPin) { return api('POST', `/api/screens/${id}/pin`, { newPin }); },
       async upload(name, file) { return api('PUT', `/api/screens/${id}/media/${name}`, file, file.type || 'audio/mpeg'); },
       async removeMedia(name) { return api('DELETE', `/api/screens/${id}/media/${name}`); },
