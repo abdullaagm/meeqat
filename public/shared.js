@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.7.6';
+  M.VERSION = '1.7.7';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -26,7 +26,7 @@
       shuruq: true, iqamah: true, jumuah: true, announcements: true, ayah: true,
       adhanOverlay: true, adhanSound: false, iqamahCountdown: true, salahScreen: true,
       ramadan: 'auto', sunnahTimes: false, qr: true, burnIn: true, nightDim: false,
-      tomorrowAfterIsha: true, lite: false, adhkar: true
+      tomorrowAfterIsha: true, lite: false, adhkar: true, jumuahDaily: true
     },
     iqamah: {
       roundTo: 0,

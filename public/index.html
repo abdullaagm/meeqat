@@ -150,7 +150,7 @@ body.nocursor{cursor:none}
 .portrait .strip{min-height:132px;padding:18px 36px}
 .portrait .table{display:flex;flex-direction:column;height:auto;flex:1;gap:16px;min-height:0}
 .lhead{display:grid;grid-template-columns:var(--cols);padding:0 44px;font-size:22px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
-.lrow{position:relative;display:grid;grid-template-columns:var(--cols);align-items:center;padding:0 44px;border-radius:28px;flex:1;min-height:108px;transition:all .8s}
+.lrow{position:relative;display:grid;grid-template-columns:var(--cols);align-items:center;padding:0 44px;border-radius:28px;flex:1;min-height:96px;transition:all .8s}
 .lname b{display:block;font-size:42px;font-weight:600;line-height:1.15}
 .lname .ar{display:block;font-size:28px;line-height:1.25;color:var(--mut)}
 .lname{display:flex;flex-direction:column;align-items:flex-start;justify-content:center}
@@ -236,6 +236,18 @@ body.nocursor{cursor:none}
 body:not(.nocursor) .hovermenu.can{display:flex}
 .hovermenu a{color:#fff;text-decoration:none;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.9vmin 1.8vmin}
 .hovermenu a:hover{border-color:var(--acc);color:var(--acc)}
+.jchip{color:var(--txt);border-color:rgba(243,201,107,.45)!important}
+.jchip b{color:var(--acc)}
+.jchip .sep{opacity:.4;margin:0 10px}
+.jchip{display:flex;align-items:center;font-size:23px;padding:12px 24px}
+.jchip .jn{color:var(--txt);font-weight:600;margin:0}
+.jchip .ar{color:var(--acc);font-size:26px;margin-left:12px;margin-right:4px}
+.lrow.jrow{min-height:84px;flex:.8}
+.lrow.jrow .lt{font-size:52px}
+.lrow.jrow .lname b{font-size:36px}
+.lrow.jrow .lname .ar{display:none}
+.lrow.jrow{border-color:rgba(243,201,107,.45);background:linear-gradient(160deg,rgba(243,201,107,.14),rgba(255,255,255,.04) 70%)}
+.jsub{display:block;font-size:19px;color:var(--mut);margin-top:0}
 .soundchip{position:fixed;z-index:80;right:2.4vmin;bottom:2.4vmin;display:none;padding:1.4vmin 2.6vmin;border-radius:999px;font-size:2vmin;background:rgba(0,0,0,.6);border:1px solid var(--acc);color:#fff}
 .soundchip.show{display:block}
 [dir=rtl] .nolsp .nlabel,.nolsp .cdlabel,.nolsp .lhead,.nolsp .tlabel,.nolsp .ov-k,.nolsp .rseg small,.nolsp .pill{letter-spacing:0!important;text-transform:none!important}
@@ -482,7 +494,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
       const past = !isTomorrow && !cur && !next && (e.sun ? e.start <= now : (e.end || e.start) <= now) && e.start <= now;
       return { e, next, cur, past };
     });
-    const sig = [portrait, S.general.lang, isTomorrow, S.features.iqamah, S.general.clock24, S.general.arabicDigits, showAr()].join() +
+    const sig = [portrait, S.general.lang, isTomorrow, S.features.jumuah, S.features.jumuahDaily, S.jumuah.khutbah, S.jumuah.iqamah, days.today.friday, S.features.iqamah, S.general.clock24, S.general.arabicDigits, showAr()].join() +
       rows.map((r) => [r.e.key, +r.e.start, r.e.iqamah ? +r.e.iqamah : 0, r.next, r.cur, r.past].join(':')).join('|');
     if (sig === tableSig) return;
     tableSig = sig;
@@ -511,7 +523,11 @@ body:not(.nocursor) .hovermenu.can{display:flex}
             <div class="lname"><b>${M.esc(nameOf(e))}</b>${showAr() ? `<span class="ar">${arOf(e)}</span>` : ''}${pill(r)}</div>
             <div class="lt">${timeHtml(e.start)}</div>
             ${iq ? `<div class="lt iq">${e.iqamah ? timeHtml(e.iqamah) : e.sun ? '<small>' + T.sunrise + '</small>' : '—'}</div>` : ''}</div>`;
-        }).join('');
+        }).join('') + (() => {
+          const j = jumuahDaily(); if (!j) return '';
+          return `<div class="lrow glass jrow"><div class="lname"><b>${M.esc(T.p.jumuah)}</b>${showAr() ? `<span class="ar">${M.AR_PRAYER.jumuah}</span>` : ''}<span class="jsub">${M.esc(T.khutbah)} · ${M.esc(T.iqamah)}</span></div>
+            <div class="lt">${timeHtml(j.kh)}</div>${iq ? `<div class="lt iq">${timeHtml(j.iq)}</div>` : `<div class="lt iq">${timeHtml(j.iq)}</div>`}</div>`;
+        })();
     }
   }
 
@@ -580,11 +596,20 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   }
 
   /* ---------------- top chips / status / QR ---------------- */
+  /** Jumu'ah times shown all week so visitors know the Friday time. */
+  function jumuahDaily() {
+    if (!S.features.jumuah || S.features.jumuahDaily === false || days.today.friday) return null;
+    const fri = M.addDays(days.today.p, (5 - days.today.dow + 7) % 7 || 7);
+    const kh = M.atWall(fri, S.jumuah.khutbah, S.general.timezone), iq = M.atWall(fri, S.jumuah.iqamah, S.general.timezone);
+    return { kh, iq: iq < kh ? kh : iq };
+  }
   function renderChips() {
     const el = $('chips');
     let html = '';
+    const j = !portrait && jumuahDaily();
+    if (j) html += `<div class="chip glass jchip"><b class="jn">${M.esc(T.p.jumuah)}</b>${showAr() ? `<span class="ar">${M.AR_PRAYER.jumuah}</span>` : ''}<span class="sep">|</span>${M.esc(T.khutbah)}<b class="num">${M.fmtHM(j.kh, S)}</b><span class="sep">·</span>${M.esc(T.iqamah)}<b class="num">${M.fmtHM(j.iq, S)}</b></div>`;
     if (S.features.sunnahTimes && days.today.sunnah) {
-      html = `<div class="chip glass">${T.midnight}<b class="num">${M.fmtHM(days.today.sunnah.midnight, S)}</b></div><div class="chip glass">${T.lastThird}<b class="num">${M.fmtHM(days.today.sunnah.lastThird, S)}</b></div>`;
+      html += `<div class="chip glass">${T.midnight}<b class="num">${M.fmtHM(days.today.sunnah.midnight, S)}</b></div><div class="chip glass">${T.lastThird}<b class="num">${M.fmtHM(days.today.sunnah.lastThird, S)}</b></div>`;
     }
     if (html !== chipSig) { el.innerHTML = html; chipSig = html; }
   }
