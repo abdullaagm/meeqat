@@ -312,7 +312,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
 <div id="overlay" class="overlay"></div>
 <div id="dim"></div>
 <div id="soundchip" class="soundchip"></div>
-<div id="hovermenu" class="hovermenu"><a href="welcome.html">⌂ Meeqat home</a><a href="admin.html" id="hmAdmin">⚙ Control panel</a><a href="#" id="hmUnlink">⨯ Unlink this browser</a><span id="hmFull" style="color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.9vmin 1.8vmin"></span></div>
+<div id="hovermenu" class="hovermenu"><span id="hmFull" style="color:#fff;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.9vmin 1.8vmin"></span></div>
 <audio id="aud" preload="auto"></audio>
 
 <script src="vendor/adhan.min.js"></script>
@@ -808,7 +808,8 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   addEventListener('keydown', (ev) => {
     unlock();
     if ((wantFull || ($('fullprompt') && $('fullprompt').style.display !== 'none')) && !isFull()) goFull().catch(() => {});
-    if (ev.key === 's' || ev.key === 'S' || ev.key === 'ContextMenu') location.href = 'admin.html' + (ID !== 'main' ? '?s=' + ID : '');
+    // Shortcut to settings only when there is no server (single-device mode). A TV never opens the control panel.
+    if ((ev.key === 's' || ev.key === 'S') && M._probe === 'no') location.href = 'admin.html';
   });
   addEventListener('pointerdown', () => {
     unlock();
@@ -993,10 +994,8 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   tick(true);
   if (!APP) {
     $('hovermenu').classList.add('can');
-    $('hmAdmin').href = 'admin.html?s=' + encodeURIComponent(ID);
-    $('hmUnlink').onclick = (ev) => { ev.preventDefault(); M.rememberTv(null); location.replace('welcome.html'); };
-    let linked = null; try { linked = localStorage.getItem('miqat:tv'); } catch (e) { /* */ }
-    if (!linked) $('hmUnlink').style.display = 'none';
+    // Only a small status label for mouse users. No links: anyone near the TV could click them.
+
     // show the cursor + small menu for a few seconds whenever the mouse moves
     addEventListener('mousemove', () => {
       document.body.classList.remove('nocursor');

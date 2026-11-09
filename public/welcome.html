@@ -292,7 +292,7 @@ footer{padding:40px 0 60px;color:var(--dim);font-size:14px;text-align:center}
         name, type: TYPE, city: [L.area, city, L.region, L.country].filter(Boolean).join(', '), contact: $('fContact').value.trim(), mobile, email: $('fEmail').value.trim(),
         pin, settings: s, website: $('fWeb').value, elapsed: Date.now() - opened
       });
-      try { localStorage.setItem('miqat:pin:' + r.id, pin); localStorage.setItem('miqat:screen', r.id); } catch (x) { /* */ }
+      try { if (!localStorage.getItem('miqat:tv')) localStorage.setItem('miqat:pin:' + r.id, pin); localStorage.setItem('miqat:screen', r.id); } catch (x) { /* */ }
       showDone(r, name);
     } catch (err) {
       fail(err.status ? err.message : 'Could not reach the server. Check your internet and try again.');

@@ -139,6 +139,7 @@ textarea{min-height:84px;resize:vertical}
     <div class="field" id="lgMobileF"><span>Mobile number used when registering</span><div id="lgPhone"></div></div>
     <label class="field hide" id="lgIdF"><span>Screen ID</span><input type="text" id="lgId" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
     <label class="field"><span>PIN</span><input type="password" id="lgPin" class="pinput" inputmode="numeric" autocomplete="current-password" maxlength="12"></label>
+    <label class="row tog" style="border:0;padding:6px 0 0" id="lgRememberRow"><div><b style="font-size:14px">Remember me on this device</b><small id="lgRememberHint">Only on your own phone. Not on a shared PC or a TV.</small></div><input type="checkbox" id="lgRemember" checked><i></i></label>
     <div class="err" id="lgErr"></div>
     <button class="btn pri wide" id="lgGo" style="margin-top:10px">Connect</button>
     <div id="lgPick"></div>
@@ -186,6 +187,27 @@ textarea{min-height:84px;resize:vertical}
   let saveTimer = null, pending = false, viewers = 0, pinIsDefault = false, retryTimer = null;
 
   /* ================= login ================= */
+  // A browser that is linked as a TV is a shared screen: never keep a PIN there.
+  const IS_TV = (() => { try { return !!localStorage.getItem('miqat:tv'); } catch (e) { return false; } })();
+  const PINKEY = (id) => 'miqat:pin:' + id;
+  function readPin(id) {
+    if (!id) return null;
+    try { return sessionStorage.getItem(PINKEY(id)) || (IS_TV ? null : localStorage.getItem(PINKEY(id))); } catch (e) { return null; }
+  }
+  function savePin(id, pin) {
+    const remember = !IS_TV && (!$('lgRemember') || $('lgRemember').checked);
+    try {
+      if (remember) { localStorage.setItem(PINKEY(id), pin); sessionStorage.removeItem(PINKEY(id)); }
+      else { sessionStorage.setItem(PINKEY(id), pin); localStorage.removeItem(PINKEY(id)); }
+    } catch (e) { /* */ }
+    REMEMBERED = remember;
+  }
+  function forgetPin(id) { try { localStorage.removeItem(PINKEY(id)); sessionStorage.removeItem(PINKEY(id)); } catch (e) { /* */ } }
+  let REMEMBERED = false;
+  if (IS_TV) {
+    // clean up any PIN saved on this TV earlier
+    try { Object.keys(localStorage).filter((k) => k.startsWith('miqat:pin:')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* */ }
+  }
   function showLogin(msg) {
     $('appView').classList.add('hide'); $('loginView').classList.remove('hide');
     $('lgId').value = ID; $('lgErr').textContent = msg || ''; $('lgPick').innerHTML = '';
@@ -198,7 +220,7 @@ textarea{min-height:84px;resize:vertical}
     if (id !== ID) { ID = id; store = M.createAdminStore(ID); try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ } }
     try {
       const j = await store.login(pin);
-      try { localStorage.setItem('miqat:pin:' + ID, pin); } catch (e) { /* */ }
+      savePin(ID, pin);
       MODE = 'server'; NAME = j.name; MEDIA = j.media || {}; viewers = j.viewers || 0; pinIsDefault = j.pinIsDefault; OWNER = j.owner || {};
       try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ }
       S = M.withDefaults(j.settings);
@@ -206,7 +228,7 @@ textarea{min-height:84px;resize:vertical}
       openApp();
     } catch (e) {
       if (e.status === 403) { showLogin(e.message); return; }
-      if (e.status === 401 || e.status === 429 || e.status === 404) { try { localStorage.removeItem('miqat:pin:' + ID); } catch (x) { /* */ } showLogin(e.status === 404 ? 'Screen ID not found.' : e.message); }
+      if (e.status === 401 || e.status === 429 || e.status === 404) { forgetPin(ID); showLogin(e.status === 404 ? 'Screen ID not found.' : e.message); }
       else if (silent) { offlineOpen(); }
       else { $('lgErr').textContent = 'Cannot reach the server. Check Wi-Fi. (' + e.message + ')'; offerOffline(); }
     }
@@ -847,9 +869,9 @@ textarea{min-height:84px;resize:vertical}
     async rmMedia(t) { if (!confirm('Remove this audio?')) return; try { await store.removeMedia(t.dataset.n); MEDIA[t.dataset.n] = null; render(); } catch (e) { toast(e.message); } },
     async pin() {
       const p = $('newPin').value.trim(); if (!/^\d{4,12}$/.test(p)) return toast('PIN must be 4–12 digits');
-      try { await store.changePin(p); store.setPin(p); localStorage.setItem('miqat:pin:' + ID, p); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
+      try { await store.changePin(p); store.setPin(p); savePin(ID, p); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
     },
-    logout() { try { localStorage.removeItem('miqat:pin:' + ID); localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } ID = ''; $('lgPin').value = ''; showLogin(); },
+    logout() { forgetPin(ID); try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } ID = ''; $('lgPin').value = ''; showLogin(); },
     export() {
       M.saveText(`meeqat-${ID}-settings.json`, 'application/json', JSON.stringify({ app: 'miqat', version: M.VERSION, name: NAME, settings: S }, null, 2));
     },
@@ -886,7 +908,12 @@ textarea{min-height:84px;resize:vertical}
   // A TV pairing code from a scanned QR (admin.html?link=123456)
   let PENDING_LINK = (new URLSearchParams(location.search).get('link') || '').replace(/\D/g, '').slice(0, 6);
   if (PENDING_LINK) { try { history.replaceState(null, '', location.pathname + (ID ? '?s=' + ID : '')); } catch (e) { /* */ } }
+  // Not remembered (shared device): lock after 10 minutes without use.
+  let idleT = null;
+  const idleReset = () => { clearTimeout(idleT); if (!REMEMBERED && MODE === 'server' && !$('appView').classList.contains('hide')) idleT = setTimeout(() => { forgetPin(ID); toast('Locked after 10 minutes'); showLogin('Locked for safety. Enter the PIN again.'); }, 10 * 60000); };
+  ['pointerdown', 'keydown', 'scroll'].forEach((ev) => addEventListener(ev, idleReset, { passive: true }));
   function openApp() {
+    setTimeout(idleReset, 0);
     $('loginView').classList.add('hide'); $('appView').classList.remove('hide');
     if (PENDING_LINK && MODE === 'server') {
       const code = PENDING_LINK; PENDING_LINK = '';
@@ -913,7 +940,9 @@ textarea{min-height:84px;resize:vertical}
     if ((await M.probe()) === 'no') { MODE = 'local'; ID = ID || 'main'; store = M.createAdminStore(ID); offlineOpen(); return; }
     M.info().then((i) => { if (i.support) $('lgHelp').textContent = 'Forgot your PIN? Contact ' + i.support; });
     if (!M.inApp() && /Android/i.test(navigator.userAgent)) $('lgApp').innerHTML = '📱 <a href="admin-app" style="color:var(--acc)">Get the Meeqat Admin app</a> for Android';
-    let saved = null; try { saved = ID && localStorage.getItem('miqat:pin:' + ID); } catch (e) { /* */ }
+    if (IS_TV) { $('lgRemember').checked = false; $('lgRemember').disabled = true; $('lgRememberHint').textContent = 'This browser is a TV screen, so the PIN is never remembered here.'; }
+    if (M.inApp()) $('lgRememberRow').classList.add('hide');  // the Admin app is on your own phone
+    let saved = readPin(ID);
     if (M._probe !== 'yes') offerOffline();
     if (saved) { $('lgId').value = ID; await doLogin(saved, true); } else showLogin();
   })();
