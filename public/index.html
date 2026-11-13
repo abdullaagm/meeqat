@@ -228,6 +228,17 @@ body.nocursor{cursor:none}
 .ov-adhkar{background:radial-gradient(120% 90% at 50% 0%,#14234a 0%,#050816 70%);justify-content:space-between;padding:5vmin 6vmin 4vmin}
 .adk-top{display:flex;align-items:center;gap:2vmin;justify-content:center}
 .adk-top .ov-k{font-size:3vmin}
+.ov-adhkar .adk-top .ov-k{font-size:4.6vmin;font-weight:700;color:var(--acc);letter-spacing:0;text-transform:none;text-shadow:0 0 30px var(--accB)}
+.ov-adhkar .adk-top{flex:none;padding-bottom:1.6vmin;position:relative;z-index:2}
+/* scrolling adhkar: one wide column moving bottom → top */
+.adk-scroll{position:relative;flex:1;width:100%;overflow:hidden;margin:1vmin 0 1.6vmin;-webkit-mask-image:linear-gradient(transparent 0,#000 7%,#000 93%,transparent 100%);mask-image:linear-gradient(transparent 0,#000 7%,#000 93%,transparent 100%)}
+.adk-track{position:absolute;left:0;right:0;top:0;will-change:transform}
+.adk-scroll.fits .adk-track{position:static;display:flex;flex-direction:column;justify-content:center;min-height:100%}
+.adk-sc{display:flex;flex-direction:column;align-items:center;gap:1.4vmin;margin:0 auto 2.6vmin;max-width:150vmin;padding:2.4vmin 4vmin;border-radius:2vmin;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);text-align:center}
+.adk-sc .a{font-size:6.2vmin;line-height:1.75;color:#fff}
+.adk-sc .t{font-size:3vmin;color:var(--mut);line-height:1.4}
+.adk-sc .c{font-size:3.4vmin;font-weight:700;color:var(--acc);background:var(--accA);border:2px solid var(--acc);border-radius:99px;padding:.3vmin 2.4vmin;direction:ltr}
+.adk-gap{height:12vmin}
 .adk-stage{position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center}
 .adk-item{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;opacity:0;transform:translateY(2vmin);transition:opacity 1s,transform 1s;padding:0 4vmin}
 .adk-item.on{opacity:1;transform:none}
@@ -711,7 +722,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
       else {
         el.classList.add('show', 'ov-' + st.t);
         el.innerHTML = overlayHtml(st);
-        if (st.t === 'adhkar') layoutAdhkarBoard(el, st);
+        if (st.t === 'adhkar') { if (S.adhkar.style === 'scroll') startAdhkarScroll(el, st); else layoutAdhkarBoard(el, st); }
       }
     }
     if (!st) return;
@@ -720,6 +731,32 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     const ck = el.querySelector('[data-clock]');
     if (ck) ck.textContent = M.fmtHM(now, S);
     if (st.t === 'adhkar') updateAdhkar(el, st, now);
+  }
+  /* Scrolling adhkar: one large column moving slowly from bottom to top, looping. */
+  function adhkarCards(e) {
+    const k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k, SEC()), tr = S.adhkar.showTranslation !== false;
+    return list.map((x) => `<div class="adk-sc"><div class="a ar" dir="rtl">${M.esc(x.ar)}</div>${+x.count > 1 ? `<div class="c">×${M.digits(+x.count, S)}</div>` : ''}${tr && x.tr ? `<div class="t" dir="auto">${M.esc(x.tr)}</div>` : ''}</div>`).join('');
+  }
+  function startAdhkarScroll(el, st) {
+    const box = el.querySelector('[data-adkscroll]'); if (!box) return;
+    const cards = adhkarCards(st.e);
+    box.innerHTML = `<div class="adk-track">${cards}</div>`;
+    const track = box.firstChild, H = box.clientHeight, C = track.scrollHeight;
+    if (C <= H) { box.classList.add('fits'); return; }        // everything fits: no need to move
+    const gap = Math.round(H * 0.12);
+    track.innerHTML = cards + `<div class="adk-gap"></div>` + cards;
+    const P = C + gap;                                     // one full loop
+    const vmin = Math.min(innerWidth, innerHeight) / 100;
+    const v = ({ slow: 2.2, normal: 3.2, fast: 4.6 }[S.adhkar.scrollSpeed] || 3.2) * vmin;   // px per second
+    const t0 = performance.now() - Math.max(0, M.now(S) - st.from);
+    const step = (t) => {
+      if (!box.isConnected) return;
+      const d = Math.max(0, (t - t0) / 1000 - 4) * v;    // first dhikr shown at the top for 4 s, then move up
+      const y = -(d % P);                                 // loops: the list comes again from the bottom
+      track.style.transform = `translate3d(0,${y.toFixed(1)}px,0)`;
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
   /* "All together" adhkar: every dhikr on one board, split into pages only if needed. */
   function layoutAdhkarBoard(el, st) {
@@ -761,6 +798,11 @@ body:not(.nocursor) .hovermenu.can{display:flex}
   }
   function updateAdhkar(el, st, now) {
     const total = st.until - st.from, elapsed = Math.max(0, now - st.from);
+    if (el.querySelector('[data-adkscroll]')) {
+      el.querySelector('[data-adkbar]').style.width = Math.min(100, (elapsed / total) * 100).toFixed(2) + '%';
+      el.querySelector('[data-adkleft]').textContent = M.fmtDuration(st.until - now + 999, S);
+      return;
+    }
     if (el._adkPages && el.querySelector('[data-adkboard]')) {
       const pages = el._adkPages, n = pages.length, per = M.pageMs(S);
       const idx = n > 1 ? Math.floor(elapsed / per) % n : 0;
@@ -801,6 +843,11 @@ body:not(.nocursor) .hovermenu.can{display:flex}
         return `<div class="calm">${ICON.mic}<div class="s1">${T.khutbahInProgress}</div>${S.general.lang !== 'ar' ? '<div class="s2 ar">الخطبة — الرجاء الإنصات</div>' : ''}<div class="s3">${T.listenSilently} · ${T.silencePhones}</div></div><div class="ov-clock num" data-clock></div>`;
       case 'adhkar': {
         const k = e.jumuah ? 'jumuah' : e.key, list = M.adhkarFor(S, k, SEC());
+        if (S.adhkar.style === 'scroll') {
+          return `<div class="adk-top"><span class="ov-k">${T.adhkar} · ${M.esc(nameOf(e))}</span></div>
+            <div class="adk-scroll" data-adkscroll></div>
+            <div class="adk-foot"><div class="adk-bar"><i data-adkbar></i></div><span class="adk-left num" data-adkleft></span></div>`;
+        }
         if (S.adhkar.style !== 'single') {
           return `<div class="adk-top"><span class="ov-k">${T.adhkar} · ${M.esc(nameOf(e))}</span><span class="adk-pg num" data-adkpg></span></div>
             <div class="adk-board" data-adkboard dir="rtl"></div>

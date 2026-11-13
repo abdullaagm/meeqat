@@ -636,8 +636,9 @@ textarea{min-height:84px;resize:vertical}
     <div class="card glass">
       ${tog('features.adhkar', 'Show adhkar on the TV after salah', 'Starts when the salah finishes (iqamah + salah minutes) and stays for the time you set below')}
       ${tog('adhkar.showTranslation', 'Show translation under the Arabic')}
-      ${sel('adhkar.style', 'How to show the adhkar', [['all', 'All together on one screen (split into pages if needed)'], ['single', 'One by one, large']], true)}
-      ${S.adhkar.style !== 'single' ? `<div class="field"><span>If they need more than one page, change page every</span><div class="two"><input type="number" inputmode="numeric" min="1" max="600" data-b="adhkar.pageEvery" data-t="num" value="${esc(S.adhkar.pageEvery || 60)}"><select data-b="adhkar.pageUnit"><option value="sec" ${S.adhkar.pageUnit !== 'min' ? 'selected' : ''}>seconds</option><option value="min" ${S.adhkar.pageUnit === 'min' ? 'selected' : ''}>minutes</option></select></div></div>` : ''}
+      ${sel('adhkar.style', 'How to show the adhkar', [['scroll', 'Scrolling bottom to top, large text'], ['all', 'All together on one screen (split into pages if needed)'], ['single', 'One by one, large']], true)}
+      ${S.adhkar.style === 'scroll' ? sel('adhkar.scrollSpeed', 'Scrolling speed', [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']]) : ''}
+      ${S.adhkar.style === 'all' ? `<div class="field"><span>If they need more than one page, change page every</span><div class="two"><input type="number" inputmode="numeric" min="1" max="600" data-b="adhkar.pageEvery" data-t="num" value="${esc(S.adhkar.pageEvery || 60)}"><select data-b="adhkar.pageUnit"><option value="sec" ${S.adhkar.pageUnit !== 'min' ? 'selected' : ''}>seconds</option><option value="min" ${S.adhkar.pageUnit === 'min' ? 'selected' : ''}>minutes</option></select></div></div>` : ''}
       <div class="field"><span>How long to show (minutes) — 0 = off for that prayer</span>
         <div class="three">${AK.map((k) => `<label class="field" style="border:0;padding:4px 0"><span>${AKN[k]}</span><input type="number" inputmode="numeric" min="0" max="60" data-b="adhkar.minutes.${k}" data-t="num" value="${esc(S.adhkar.minutes[k] ?? 0)}"></label>`).join('')}</div>
       </div>

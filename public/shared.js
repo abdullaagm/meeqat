@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.8.1';
+  M.VERSION = '1.8.2';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -44,7 +44,8 @@
     adhkar: {
       minutes: { fajr: 15, dhuhr: 10, asr: 10, maghrib: 15, isha: 10, jumuah: 10 },
       showTranslation: true,
-      style: 'all',          // 'all' = every dhikr on one screen (split into pages if needed) · 'single' = one at a time
+      style: 'scroll',       // 'scroll' = large, moving bottom → top · 'all' = every dhikr on one screen (pages) · 'single' = one at a time
+      scrollSpeed: 'normal', // slow | normal | fast
       pageEvery: 60, pageUnit: 'sec', // how long each page stays when the adhkar need more than one page
       list: null // null = standard starter list (M.STD_ADHKAR)
     },
