@@ -3,7 +3,7 @@
 (function (g) {
   'use strict';
   const M = {};
-  M.VERSION = '1.7.8';
+  M.VERSION = '1.8.0';
   /* API base: '' = same server (Pi / Railway). Set window.MIQAT_API in config.js when the
      pages are hosted separately (e.g. Netlify front-end + Railway API). */
   M.API = String(g.MIQAT_API || '').trim().replace(/\/+$/, '');
@@ -25,7 +25,7 @@
     features: {
       shuruq: true, iqamah: true, jumuah: true, announcements: true, ayah: true,
       adhanOverlay: true, adhanSound: false, iqamahCountdown: true, salahScreen: true,
-      ramadan: 'auto', sunnahTimes: false, qr: true, burnIn: true, nightDim: false,
+      ramadan: 'auto', ramadanCountdown: 'auto', sunnahTimes: false, burnIn: true, nightDim: false,
       tomorrowAfterIsha: true, lite: false, adhkar: true, jumuahDaily: true
     },
     iqamah: {
@@ -49,7 +49,7 @@
       list: null // null = standard starter list (M.STD_ADHKAR)
     },
     salah: { countdownSeconds: 60, minutes: { fajr: 10, dhuhr: 10, asr: 10, maghrib: 8, isha: 12, jumuah: 15 } },
-    ramadan: { taraweeh: '20:30', imsakMinutes: 10 },
+    ramadan: { taraweeh: '20:30', imsakMinutes: 10, countdownDays: 100 },
     display: {
       theme: 'dynamic', accent: 'gold', orientation: 'auto', layout: 'cards',
       nightFrom: '23:00', nightTo: '04:30', nightLevel: 0.45, ayahSeconds: 45, tickerSpeed: 90
@@ -140,8 +140,8 @@
 
   /* Quick presets — "Home" and "Masjid" just flip feature switches. */
   M.PRESETS = {
-    home: { iqamah: false, jumuah: false, announcements: false, iqamahCountdown: false, salahScreen: false, qr: false, adhanOverlay: true, adhanSound: true },
-    masjid: { iqamah: true, jumuah: true, announcements: true, iqamahCountdown: true, salahScreen: true, qr: true, adhanOverlay: true }
+    home: { iqamah: false, jumuah: false, announcements: false, iqamahCountdown: false, salahScreen: false, adhanOverlay: true, adhanSound: true },
+    masjid: { iqamah: true, jumuah: true, announcements: true, iqamahCountdown: true, salahScreen: true, adhanOverlay: true }
   };
 
   M.METHODS = [
@@ -236,7 +236,7 @@
       khutbah: 'Khutbah', sunrise: 'Sunrise', timeFor: "It's time for", salahInProgress: 'Salah in progress',
       silencePhones: 'Please switch off your mobile phone', straightenRows: 'Straighten your rows',
       khutbahInProgress: 'Khutbah in progress', listenSilently: 'Please listen in silence', suhoorEnds: 'Suhoor ends',
-      iftar: 'Iftar', taraweeh: 'Taraweeh', ramadan: 'Ramadan Kareem', day: 'Day', scan: 'Scan to control',
+      iftar: 'Iftar', taraweeh: 'Taraweeh', ramadan: 'Ramadan Kareem', day: 'Day', ramIn: 'Ramadan in', daysW: 'days', ramTomorrow: 'Ramadan begins tomorrow, in shā’ Allāh', ramComing: 'Ramadan is coming', ramStarts: 'Expected 1st day', ramMoon: 'Subject to moon sighting', scan: 'Scan to control',
       offline: 'Offline · using saved settings', tomorrow: 'Tomorrow', notice: 'Notice', midnight: 'Midnight', lastThird: 'Last third', tapSound: 'Press OK to enable adhan sound', adhkar: 'Adhkar after salah' },
     ar: { name: 'العربية', dir: 'rtl', locale: 'ar', imsak: 'الإمساك', adhkar: 'أذكار بعد الصلاة',
       p: P('الفجر', 'الشروق', 'الظهر', 'العصر', 'المغرب', 'العشاء', 'الجمعة'),
@@ -244,7 +244,7 @@
       khutbah: 'الخطبة', sunrise: 'شروق الشمس', timeFor: 'حان الآن موعد', salahInProgress: 'الصلاة قائمة',
       silencePhones: 'الرجاء إغلاق الهاتف المحمول', straightenRows: 'استووا واعتدلوا',
       khutbahInProgress: 'الخطبة قائمة', listenSilently: 'الرجاء الإنصات', suhoorEnds: 'نهاية السحور',
-      iftar: 'الإفطار', taraweeh: 'التراويح', ramadan: 'رمضان كريم', day: 'اليوم', scan: 'امسح للتحكم',
+      iftar: 'الإفطار', taraweeh: 'التراويح', ramadan: 'رمضان كريم', day: 'اليوم', ramIn: 'رمضان بعد', daysW: 'يوم', ramTomorrow: 'رمضان غداً إن شاء الله', ramComing: 'رمضان قادم', ramStarts: 'اليوم الأول المتوقع', ramMoon: 'حسب رؤية الهلال', scan: 'امسح للتحكم',
       offline: 'غير متصل · الإعدادات المحفوظة', tomorrow: 'غداً', notice: 'إعلان', midnight: 'منتصف الليل', lastThird: 'الثلث الأخير', tapSound: 'اضغط موافق لتفعيل صوت الأذان' },
     ml: { name: 'മലയാളം', dir: 'ltr', locale: 'ml-IN', imsak: 'ഇംസാക്', adhkar: 'നമസ്കാരശേഷമുള്ള ദിക്റുകൾ',
       p: P('സുബ്ഹ്', 'ഉദയം', 'ളുഹ്ർ', 'അസ്ർ', 'മഗ്‌രിബ്', 'ഇശാ', 'ജുമുഅ'),
@@ -252,7 +252,7 @@
       khutbah: 'ഖുതുബ', sunrise: 'സൂര്യോദയം', timeFor: 'ബാങ്ക് സമയം', salahInProgress: 'നമസ്കാരം നടക്കുന്നു',
       silencePhones: 'ദയവായി മൊബൈൽ ഫോൺ ഓഫ് ചെയ്യുക', straightenRows: 'സ്വഫ്ഫുകൾ നേരെയാക്കുക',
       khutbahInProgress: 'ഖുതുബ നടക്കുന്നു', listenSilently: 'ദയവായി നിശബ്ദമായി ശ്രദ്ധിക്കുക', suhoorEnds: 'അത്താഴം അവസാനം',
-      iftar: 'നോമ്പുതുറ', taraweeh: 'തറാവീഹ്', ramadan: 'റമദാൻ കരീം', day: 'ദിവസം', scan: 'നിയന്ത്രിക്കാൻ സ്കാൻ ചെയ്യുക',
+      iftar: 'നോമ്പുതുറ', taraweeh: 'തറാവീഹ്', ramadan: 'റമദാൻ കരീം', day: 'ദിവസം', ramIn: 'റമദാൻ', daysW: 'ദിവസം കൂടി', ramTomorrow: 'റമദാൻ നാളെ, ഇൻ ശാ അല്ലാഹ്', ramComing: 'റമദാൻ വരുന്നു', ramStarts: 'പ്രതീക്ഷിക്കുന്ന ഒന്നാം നോമ്പ്', ramMoon: 'മാസപ്പിറവി കാണുന്നതിനനുസരിച്ച്', scan: 'നിയന്ത്രിക്കാൻ സ്കാൻ ചെയ്യുക',
       offline: 'ഓഫ്‌ലൈൻ · സേവ് ചെയ്ത ക്രമീകരണങ്ങൾ', tomorrow: 'നാളെ', notice: 'അറിയിപ്പ്', midnight: 'അർദ്ധരാത്രി', lastThird: 'അവസാന മൂന്നിലൊന്ന്', tapSound: 'ബാങ്ക് ശബ്ദത്തിന് OK അമർത്തുക' },
     ur: { name: 'اردو', dir: 'rtl', locale: 'ur', imsak: 'امساک', adhkar: 'نماز کے بعد کے اذکار',
       p: P('فجر', 'طلوع آفتاب', 'ظہر', 'عصر', 'مغرب', 'عشاء', 'جمعہ'),
@@ -260,7 +260,7 @@
       khutbah: 'خطبہ', sunrise: 'طلوع آفتاب', timeFor: 'وقتِ اذان', salahInProgress: 'نماز جاری ہے',
       silencePhones: 'براہ کرم اپنا موبائل فون بند کر دیں', straightenRows: 'صفیں سیدھی کر لیں',
       khutbahInProgress: 'خطبہ جاری ہے', listenSilently: 'براہ کرم خاموشی سے سنیں', suhoorEnds: 'سحری کا اختتام',
-      iftar: 'افطار', taraweeh: 'تراویح', ramadan: 'رمضان کریم', day: 'دن', scan: 'کنٹرول کے لیے اسکین کریں',
+      iftar: 'افطار', taraweeh: 'تراویح', ramadan: 'رمضان کریم', day: 'دن', ramIn: 'رمضان میں', daysW: 'دن باقی', ramTomorrow: 'رمضان کل سے، ان شاء اللہ', ramComing: 'رمضان آ رہا ہے', ramStarts: 'متوقع پہلا روزہ', ramMoon: 'چاند نظر آنے پر منحصر', scan: 'کنٹرول کے لیے اسکین کریں',
       offline: 'آف لائن · محفوظ ترتیبات', tomorrow: 'کل', notice: 'اعلان', midnight: 'نصف شب', lastThird: 'آخری تہائی', tapSound: 'اذان کی آواز کے لیے OK دبائیں' },
     hi: { name: 'हिन्दी', dir: 'ltr', locale: 'hi-IN', imsak: 'इम्साक', adhkar: 'नमाज़ के बाद के अज़कार',
       p: P('फ़ज्र', 'सूर्योदय', 'ज़ुहर', 'अस्र', 'मग़रिब', 'इशा', 'जुमा'),
@@ -268,7 +268,7 @@
       khutbah: 'ख़ुत्बा', sunrise: 'सूर्योदय', timeFor: 'अज़ान का समय', salahInProgress: 'नमाज़ जारी है',
       silencePhones: 'कृपया अपना मोबाइल फ़ोन बंद करें', straightenRows: 'सफ़ें सीधी कर लें',
       khutbahInProgress: 'ख़ुत्बा जारी है', listenSilently: 'कृपया ख़ामोशी से सुनें', suhoorEnds: 'सहरी समाप्त',
-      iftar: 'इफ़्तार', taraweeh: 'तरावीह', ramadan: 'रमज़ान करीम', day: 'दिन', scan: 'नियंत्रण के लिए स्कैन करें',
+      iftar: 'इफ़्तार', taraweeh: 'तरावीह', ramadan: 'रमज़ान करीम', day: 'दिन', ramIn: 'रमज़ान में', daysW: 'दिन बाक़ी', ramTomorrow: 'रमज़ान कल से, इन शा अल्लाह', ramComing: 'रमज़ान आ रहा है', ramStarts: 'संभावित पहला रोज़ा', ramMoon: 'चाँद दिखने पर निर्भर', scan: 'नियंत्रण के लिए स्कैन करें',
       offline: 'ऑफ़लाइन · सहेजी गई सेटिंग्स', tomorrow: 'कल', notice: 'सूचना', midnight: 'आधी रात', lastThird: 'अंतिम तिहाई', tapSound: 'अज़ान की आवाज़ के लिए OK दबाएँ' },
     ta: { name: 'தமிழ்', dir: 'ltr', locale: 'ta-IN', imsak: 'இம்ஸாக்', adhkar: 'தொழுகைக்குப் பிந்தைய திக்ர்',
       p: P('ஃபஜ்ர்', 'சூரிய உதயம்', 'லுஹர்', 'அஸர்', 'மஃரிப்', 'இஷா', 'ஜும்ஆ'),
@@ -276,7 +276,7 @@
       khutbah: 'குத்பா', sunrise: 'சூரிய உதயம்', timeFor: 'பாங்கு நேரம்', salahInProgress: 'தொழுகை நடைபெறுகிறது',
       silencePhones: 'தயவுசெய்து கைபேசியை அணைக்கவும்', straightenRows: 'வரிசைகளை நேராக்குங்கள்',
       khutbahInProgress: 'குத்பா நடைபெறுகிறது', listenSilently: 'தயவுசெய்து அமைதியாகக் கேளுங்கள்', suhoorEnds: 'ஸஹர் முடிவு',
-      iftar: 'இஃப்தார்', taraweeh: 'தராவீஹ்', ramadan: 'ரமளான் கரீம்', day: 'நாள்', scan: 'கட்டுப்படுத்த ஸ்கேன் செய்யவும்',
+      iftar: 'இஃப்தார்', taraweeh: 'தராவீஹ்', ramadan: 'ரமளான் கரீம்', day: 'நாள்', ramIn: 'ரமளான் வர', daysW: 'நாட்கள்', ramTomorrow: 'ரமளான் நாளை, இன் ஷா அல்லாஹ்', ramComing: 'ரமளான் வருகிறது', ramStarts: 'எதிர்பார்க்கப்படும் முதல் நாள்', ramMoon: 'பிறை பார்ப்பதைப் பொறுத்து', scan: 'கட்டுப்படுத்த ஸ்கேன் செய்யவும்',
       offline: 'ஆஃப்லைன் · சேமித்த அமைப்புகள்', tomorrow: 'நாளை', notice: 'அறிவிப்பு', midnight: 'நள்ளிரவு', lastThird: 'கடைசி மூன்றில் ஒன்று', tapSound: 'பாங்கு ஒலிக்கு OK அழுத்தவும்' },
     bn: { name: 'বাংলা', dir: 'ltr', locale: 'bn-BD', imsak: 'ইমসাক', adhkar: 'নামাজের পরের যিকির',
       p: P('ফজর', 'সূর্যোদয়', 'যোহর', 'আসর', 'মাগরিব', 'এশা', 'জুমা'),
@@ -284,7 +284,7 @@
       khutbah: 'খুতবা', sunrise: 'সূর্যোদয়', timeFor: 'আযানের সময়', salahInProgress: 'নামাজ চলছে',
       silencePhones: 'অনুগ্রহ করে মোবাইল ফোন বন্ধ করুন', straightenRows: 'কাতার সোজা করুন',
       khutbahInProgress: 'খুতবা চলছে', listenSilently: 'অনুগ্রহ করে নীরবে শুনুন', suhoorEnds: 'সেহরির শেষ',
-      iftar: 'ইফতার', taraweeh: 'তারাবীহ', ramadan: 'রমজান কারীম', day: 'দিন', scan: 'নিয়ন্ত্রণ করতে স্ক্যান করুন',
+      iftar: 'ইফতার', taraweeh: 'তারাবীহ', ramadan: 'রমজান কারীম', day: 'দিন', ramIn: 'রমজান আসতে', daysW: 'দিন বাকি', ramTomorrow: 'রমজান আগামীকাল, ইনশাআল্লাহ', ramComing: 'রমজান আসছে', ramStarts: 'সম্ভাব্য প্রথম রোজা', ramMoon: 'চাঁদ দেখা সাপেক্ষে', scan: 'নিয়ন্ত্রণ করতে স্ক্যান করুন',
       offline: 'অফলাইন · সংরক্ষিত সেটিংস', tomorrow: 'আগামীকাল', notice: 'ঘোষণা', midnight: 'মধ্যরাত', lastThird: 'শেষ তৃতীয়াংশ', tapSound: 'আযানের শব্দের জন্য OK চাপুন' },
     id: { name: 'Bahasa Indonesia', dir: 'ltr', locale: 'id-ID', imsak: 'Imsak', adhkar: 'Zikir setelah salat',
       p: P('Subuh', 'Terbit', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya', "Jum'at"),
@@ -292,7 +292,7 @@
       khutbah: 'Khutbah', sunrise: 'Matahari terbit', timeFor: 'Waktunya azan', salahInProgress: 'Salat sedang berlangsung',
       silencePhones: 'Mohon matikan telepon genggam Anda', straightenRows: 'Luruskan dan rapatkan saf',
       khutbahInProgress: 'Khutbah sedang berlangsung', listenSilently: 'Mohon dengarkan dengan tenang', suhoorEnds: 'Imsak',
-      iftar: 'Berbuka', taraweeh: 'Tarawih', ramadan: 'Ramadan Kareem', day: 'Hari', scan: 'Pindai untuk mengatur',
+      iftar: 'Berbuka', taraweeh: 'Tarawih', ramadan: 'Ramadan Kareem', day: 'Hari', ramIn: 'Ramadan', daysW: 'hari lagi', ramTomorrow: 'Ramadan mulai besok, insya Allah', ramComing: 'Ramadan segera tiba', ramStarts: 'Perkiraan hari pertama', ramMoon: 'Tergantung rukyatul hilal', scan: 'Pindai untuk mengatur',
       offline: 'Luring · pengaturan tersimpan', tomorrow: 'Besok', notice: 'Pengumuman', midnight: 'Tengah malam', lastThird: 'Sepertiga akhir', tapSound: 'Tekan OK untuk suara azan' },
     tr: { name: 'Türkçe', dir: 'ltr', locale: 'tr-TR', imsak: 'İmsak', adhkar: 'Namaz sonrası zikirler',
       p: P('Sabah', 'Güneş', 'Öğle', 'İkindi', 'Akşam', 'Yatsı', 'Cuma'),
@@ -300,7 +300,7 @@
       khutbah: 'Hutbe', sunrise: 'Güneş doğuşu', timeFor: 'Ezan vakti', salahInProgress: 'Namaz kılınıyor',
       silencePhones: 'Lütfen cep telefonunuzu kapatınız', straightenRows: 'Safları düzeltiniz',
       khutbahInProgress: 'Hutbe okunuyor', listenSilently: 'Lütfen sessizce dinleyiniz', suhoorEnds: 'İmsak',
-      iftar: 'İftar', taraweeh: 'Teravih', ramadan: 'Hayırlı Ramazanlar', day: 'Gün', scan: 'Yönetmek için tarayın',
+      iftar: 'İftar', taraweeh: 'Teravih', ramadan: 'Hayırlı Ramazanlar', day: 'Gün', ramIn: 'Ramazan’a', daysW: 'gün', ramTomorrow: 'Ramazan yarın başlıyor, inşallah', ramComing: 'Ramazan geliyor', ramStarts: 'Tahmini ilk gün', ramMoon: 'Hilalin görülmesine bağlıdır', scan: 'Yönetmek için tarayın',
       offline: 'Çevrimdışı · kayıtlı ayarlar', tomorrow: 'Yarın', notice: 'Duyuru', midnight: 'Gece yarısı', lastThird: 'Son üçte bir', tapSound: 'Ezan sesi için OK tuşuna basın' },
     fr: { name: 'Français', dir: 'ltr', locale: 'fr-FR', imsak: 'Imsak', adhkar: 'Invocations après la prière',
       p: P('Fajr', 'Chourouk', 'Dhohr', 'Asr', 'Maghrib', 'Icha', "Joumou'a"),
@@ -308,7 +308,7 @@
       khutbah: 'Khotba', sunrise: 'Lever du soleil', timeFor: "C'est l'heure de", salahInProgress: 'Prière en cours',
       silencePhones: 'Merci d’éteindre votre téléphone', straightenRows: 'Alignez les rangs',
       khutbahInProgress: 'Khotba en cours', listenSilently: 'Merci d’écouter en silence', suhoorEnds: 'Fin du sahour',
-      iftar: 'Iftar', taraweeh: 'Tarawih', ramadan: 'Ramadan Moubarak', day: 'Jour', scan: 'Scannez pour gérer',
+      iftar: 'Iftar', taraweeh: 'Tarawih', ramadan: 'Ramadan Moubarak', day: 'Jour', ramIn: 'Ramadan dans', daysW: 'jours', ramTomorrow: 'Ramadan commence demain, in shā’ Allāh', ramComing: 'Le Ramadan arrive', ramStarts: 'Premier jour prévu', ramMoon: 'Selon l’observation du croissant', scan: 'Scannez pour gérer',
       offline: 'Hors ligne · réglages enregistrés', tomorrow: 'Demain', notice: 'Annonce', midnight: 'Minuit', lastThird: 'Dernier tiers', tapSound: 'Appuyez sur OK pour le son de l’adhan' }
   };
   M.HIJRI_MONTHS = {
@@ -700,6 +700,11 @@
       async updateTv(tv, data) { return api('PUT', `/api/screens/${id}/tvs/${tv}`, data); },
       async forgetTv(tv) { return api('DELETE', `/api/screens/${id}/tvs/${tv}`); },
       async changePin(newPin) { return api('POST', `/api/screens/${id}/pin`, { newPin }); },
+      async admins() { return api('GET', `/api/screens/${id}/admins`); },
+      async addAdmin(data) { return api('POST', `/api/screens/${id}/admins`, data); },
+      async updateAdmin(aid, data) { return api('PUT', `/api/screens/${id}/admins/${aid}`, data); },
+      async removeAdmin(aid) { return api('DELETE', `/api/screens/${id}/admins/${aid}`); },
+      getPin() { return pin; },
       async upload(name, file) { return api('PUT', `/api/screens/${id}/media/${name}`, file, file.type || 'audio/mpeg'); },
       async removeMedia(name) { return api('DELETE', `/api/screens/${id}/media/${name}`); },
       async createScreen(name, newPin, settings) {

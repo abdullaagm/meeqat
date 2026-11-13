@@ -219,7 +219,7 @@ td .s{display:block;color:var(--mut);font-size:13px;margin-top:2px}
       return `<tr>
         <td><b>${esc(x.displayName || x.name)}</b><span class="s">${esc(x.city || '—')}${x.region ? ' · ' + esc(x.region) : ''} · ${esc((M.LANGS[x.lang] || M.LANGS.en).name)}</span><span class="mono">${esc(x.id)}</span></td>
         <td>${esc(x.contact || '—')}<span class="s">${mob ? `<a href="tel:${esc(mob)}">${esc(x.mobile)}</a>${wa ? ` · <a href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}` : '—'}</span>${x.email ? `<span class="s"><a href="mailto:${esc(x.email)}">${esc(x.email)}</a></span>` : ''}</td>
-        <td><span class="live"><i class="dot ${isOnline(x) ? 'on' : ''}"></i>${isOnline(x) ? `${x.live} TV${x.live > 1 ? 's' : ''} live` : 'Offline'}</span><span class="s">Last seen ${ago(x.lastSeen)}</span></td>
+        <td><span class="live"><i class="dot ${isOnline(x) ? 'on' : ''}"></i>${isOnline(x) ? `${x.live} TV${x.live > 1 ? 's' : ''} live` : 'Offline'}</span><span class="s">Last seen ${ago(x.lastSeen)}${x.admins ? ` · 👥 ${x.admins + 1} admins` : ''}</span></td>
         <td>${fmtDate(x.created)}<span class="s">Edited ${ago(x.updated)}</span></td>
         <td><span class="badge ${x.type === 'home' ? 'b-h' : 'b-m'}">${x.type === 'home' ? 'Home' : 'Masjid'}</span>
             ${x.disabled ? '<span class="badge b-d">Disabled</span>' : x.pending ? '<span class="badge b-p">Pending</span>' : '<span class="badge b-a">Active</span>'}

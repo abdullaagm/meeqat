@@ -70,11 +70,6 @@ body.nocursor{cursor:none}
 .status{display:none;padding:12px 22px;border-radius:999px;font-size:21px;background:rgba(255,170,60,.18);border:1px solid rgba(255,170,60,.5);color:#ffd59a;white-space:nowrap}
 .status.show{display:block}
 .status.bad{background:rgba(255,80,80,.18);border-color:rgba(255,80,80,.5);color:#ffb3b3}
-.qr{display:none;align-items:center;gap:14px;padding:10px 18px 10px 10px;border-radius:24px}
-.qr.show{display:flex}
-.qrimg{width:72px;height:72px;border-radius:14px;overflow:hidden;background:#fff}
-.qrimg svg{width:100%;height:100%;display:block}
-.qr span{font-size:18px;color:var(--mut);max-width:130px;line-height:1.25}
 
 /* ---------- hero ---------- */
 .hero{flex:1;display:flex;align-items:center;gap:56px;min-height:0}
@@ -86,6 +81,16 @@ body.nocursor{cursor:none}
 #ampm{font-size:44px;font-weight:500;color:var(--mut)}
 .date{font-size:44px;font-weight:400;margin-top:34px}
 .hdate{font-size:38px;font-weight:500;color:var(--acc);margin-top:10px}
+.hrow{display:flex;align-items:center;gap:22px;margin-top:10px;flex-wrap:wrap}
+.hrow .hdate{margin-top:0}
+.rcd{display:inline-flex;align-items:center;gap:12px;padding:6px 20px 6px 14px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);font-size:30px;font-weight:500;white-space:nowrap}
+.rcd.hide{display:none}
+.rcd .moon{font-size:28px;line-height:1}
+.rcd b{color:var(--acc);font-weight:700;font-size:32px}
+.rcd .ar{font-size:30px;color:var(--mut)}
+.rcdbig{display:flex;width:100%;align-items:center}
+.rcdbig .rseg b.big{font-size:64px;line-height:1;color:var(--acc)}
+.rcdbig .rseg b.big small{font-size:28px;color:var(--mut);margin-inline-start:10px;letter-spacing:0;text-transform:none}
 .nextcard{width:800px;flex:none;padding:30px 46px 32px;overflow:hidden;transition:box-shadow 1s,border-color 1s}
 .nextcard::before{content:"";position:absolute;width:520px;height:520px;right:-180px;top:-260px;border-radius:50%;background:radial-gradient(circle,var(--accB),transparent 70%);pointer-events:none}
 .nlabel{font-size:23px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
@@ -147,6 +152,8 @@ body.nocursor{cursor:none}
 .portrait .cdlabel{margin-top:0}
 .portrait .date{font-size:40px;margin-top:26px}
 .portrait .hdate{font-size:36px}
+.portrait .hrow{justify-content:center}
+.portrait .rcd{font-size:28px}
 .portrait .strip{min-height:132px;padding:18px 36px}
 .portrait .table{display:flex;flex-direction:column;height:auto;flex:1;gap:16px;min-height:0}
 .lhead{display:grid;grid-template-columns:var(--cols);padding:0 44px;font-size:22px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
@@ -284,7 +291,6 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     <div class="topr">
       <div class="chips" id="chips"></div>
       <div class="status" id="status"></div>
-      <div class="qr glass" id="qr"><div class="qrimg" id="qrimg"></div><span id="qrcap"></span></div>
     </div>
   </header>
 
@@ -292,7 +298,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     <div class="clockbox">
       <div class="clock num"><span id="hm">--:--</span><span class="sec"><span id="ss"></span><span id="ampm"></span></span></div>
       <div class="date" id="gdate"></div>
-      <div class="hdate" id="hdate"></div>
+      <div class="hrow"><div class="hdate" id="hdate"></div><div class="rcd hide" id="rcd"></div></div>
     </div>
     <div class="nextcard glass" id="nextcard">
       <div class="nlabel" id="nlabel"></div>
@@ -316,7 +322,6 @@ body:not(.nocursor) .hovermenu.can{display:flex}
 <audio id="aud" preload="auto"></audio>
 
 <script src="vendor/adhan.min.js"></script>
-<script src="vendor/qrcode.js"></script>
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script>
@@ -363,9 +368,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     $('mname').textContent = S.general.masjidName || meta.name || 'Meeqat';
     $('msub').textContent = [S.general.subtitle, [S.location.area, S.location.city].filter(Boolean).join(', ')].filter(Boolean).join('  ·  ');
     $('tlabel').textContent = T.notice;
-    $('qrcap').textContent = T.scan;
     layout();
-    renderQr();
   }
 
   function layout() {
@@ -454,6 +457,7 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     catch (e) { g = now.toDateString(); }
     $('gdate').textContent = g;
     $('hdate').textContent = M.hijriText(hijriNow(now, p), S);
+    renderRcd(now, p);
   }
 
   /* ---------------- next-prayer card ---------------- */
@@ -538,10 +542,43 @@ body:not(.nocursor) .hovermenu.can{display:flex}
     if (mode === 'auto') return hijriNow(M.now(S), p).m === 9;
     return false;
   }
+  /** Days until 1 Ramadan (uses the masjid's Hijri offset). Cached per day. */
+  let rcdCache = null;
+  function ramadanCountdown(now, p) {
+    const mode = S.features.ramadanCountdown;
+    if (!mode || mode === 'off' || ramadanActive(p)) return null;
+    const key = M.dayKey(p) + '|' + (+S.calc.hijriOffset || 0);
+    if (!rcdCache || rcdCache.key !== key) {
+      rcdCache = { key, r: null };
+      const off = +S.calc.hijriOffset || 0;
+      for (let i = 1; i <= 400; i++) {
+        const d = M.addDays(p, i), h = M.hijri(d, off);
+        if (h.m === 9 && h.d === 1) { rcdCache.r = { days: i, date: d, hy: h.y }; break; }
+      }
+    }
+    const r = rcdCache.r;
+    if (!r) return null;
+    const limit = +S.ramadan.countdownDays || 0;
+    if (mode === 'auto' && limit && r.days > limit) return null;
+    return r;
+  }
+  function rcdText(r) {
+    if (r.days === 1) return T.ramTomorrow;
+    return `${T.ramIn} <b class="num">${M.digits(r.days, S)}</b> ${T.daysW}`;
+  }
+  function renderRcd(now, p) {
+    const el = $('rcd'), r = ramadanCountdown(now, p);
+    if (!r) { el.classList.add('hide'); return; }
+    el.classList.remove('hide');
+    const h = `<span class="moon">🌙</span><span>${rcdText(r)}</span>`;
+    if (el._h !== h) { el.innerHTML = h; el._h = h; }
+  }
   function renderStrip(now, p) {
     const el = $('strip');
     const slides = [];
     if (ramadanActive(p)) slides.push({ type: 'ram' });
+    const rcd = ramadanCountdown(now, p);
+    if (rcd) slides.push({ type: 'rcd', r: rcd });
     if (S.features.ayah) (S.ayahs || []).filter((a) => a.on !== false && (a.ar || a.tr) && M.forSection(a, SEC())).forEach((a) => slides.push({ type: 'ayah', a }));
     if (!slides.length) { el.classList.add('hide'); stripSig = ''; return; }
     el.classList.remove('hide');
@@ -557,6 +594,15 @@ body:not(.nocursor) .hovermenu.can{display:flex}
       const sig = 'a' + slideIdx % slides.length + S.general.lang;
       if (sig === stripSig) return; stripSig = sig;
       el.innerHTML = `<div class="ayah"><div class="ar">${M.esc(s.a.ar)}</div>${s.a.tr || s.a.ref ? `<div class="tr">${M.esc(s.a.tr)}${s.a.ref ? `<i>${M.esc(s.a.ref)}</i>` : ''}</div>` : ''}</div>`;
+    } else if (s.type === 'rcd') {
+      const r = s.r, sig = 'rcd' + r.days + S.general.lang;
+      if (sig === stripSig) return; stripSig = sig;
+      let gd = '';
+      try { gd = new Intl.DateTimeFormat(T.locale + (S.general.arabicDigits ? '-u-nu-arab' : '-u-nu-latn'), { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(Date.UTC(r.date.y, r.date.m - 1, r.date.d, 12))); } catch (e) { gd = M.dayKey(r.date); }
+      el.innerHTML = `<div class="ram rcdbig">
+        <div class="rseg"><span class="ar">رمضان ${M.digits(r.hy, S)}</span><small>${T.ramComing}</small></div>
+        <div class="rseg"><small>${T.ramIn}</small><b class="big num">${M.digits(r.days, S)}<small>${T.daysW}</small></b></div>
+        <div class="rseg"><small>${T.ramStarts}</small><b>${M.esc(gd)}</b><small>${T.ramMoon}</small></div></div>`;
     } else {
       const td = days.today, tm = days.tomorrow;
       const suhoor = now < td.times.fajr ? td.times.fajr : tm.times.fajr;
@@ -621,15 +667,6 @@ body:not(.nocursor) .hovermenu.can{display:flex}
       el.textContent = `Screen "${ID}" not found`; el.classList.add('show', 'bad');
       if (APP) { M.rememberTv(null); try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } setTimeout(() => location.replace('pair.html?app=1'), 4000); }
     }
-    renderQr();
-  }
-  async function renderQr() {
-    const box = $('qr');
-    const want = S.features.qr && M.serverAvailable() && store.status === 'online';
-    box.classList.toggle('show', !!want);
-    if (!want || qrDone === ID) return;
-    qrDone = ID;
-    $('qrimg').innerHTML = M.qrSvg(await M.adminUrl(ID));
   }
 
   /* ---------------- overlays ---------------- */

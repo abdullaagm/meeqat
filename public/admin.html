@@ -94,6 +94,26 @@ textarea{min-height:84px;resize:vertical}
 .tabs button{flex:1;max-width:110px;min-width:0;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--dim);padding:6px 0;cursor:pointer}
 .tabs svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabs button.on{color:var(--acc)}
+.adm{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.adm:first-of-type{border-top:0}
+.adm.off{opacity:.55}
+.adm .ai{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);border:1px solid var(--line);font-weight:700;font-size:16px}
+.adm .am{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.adm .am small{color:var(--dim);font-size:12.5px;line-height:1.35}
+.adm .am small.perms{color:var(--acc)}
+.admform{margin-top:14px;padding:16px;border-radius:16px;display:flex;flex-direction:column;gap:2px}
+.permgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 4px}
+@media (max-width:420px){.permgrid{grid-template-columns:1fr}}
+.pchk{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer}
+.pchk input{margin-top:3px;accent-color:var(--acc);width:18px;height:18px;flex:none}
+.pchk span{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.pchk small{color:var(--dim);font-size:12px;line-height:1.3}
+.log{margin-top:8px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.log div{line-height:1.4}
+.log span{font-weight:600}
+.log small{float:right;margin-left:8px;color:var(--dim);font-size:12px}
+.whoami small{opacity:.85}
+.tabs button.hide{display:none}
 .banner{padding:13px 15px;border-radius:14px;margin-bottom:12px;font-size:14px;line-height:1.4;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.35);color:#fde68a}
 .chipx{border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--mut);border-radius:999px;padding:7px 13px;font:inherit;font-size:13.5px;cursor:pointer}
 .chipx.on{background:var(--acc);color:var(--ink);border-color:var(--acc);font-weight:600}
@@ -185,6 +205,34 @@ textarea{min-height:84px;resize:vertical}
   let store = M.createAdminStore(ID);
   let S = M.withDefaults(null), NAME = '', MEDIA = {}, MODE = 'server', TAB = 'home', OWNER = {}, LGMODE = 'mobile';
   let saveTimer = null, pending = false, viewers = 0, pinIsDefault = false, retryTimer = null;
+  /* who is logged in: the owner (screen PIN) or a team admin with a role */
+  const ALL_PERMS = ['iqamah', 'content', 'tvs', 'commands', 'settings', 'admins'];
+  let ME = { id: 'owner', name: 'Owner', role: 'owner', perms: ALL_PERMS.slice() };
+  const can = (p) => MODE !== 'server' || ME.perms.includes(p);
+  const ROLE_INFO = {
+    owner: ['Owner', 'Everything, including the team'],
+    manager: ['Manager', 'Everything except the team and contact details'],
+    imam: ['Imam / Khateeb', 'Iqamah times, notices, ayah/hadith and adhkar'],
+    iqamah: ['Iqamah editor', 'Only iqamah, Jumu’ah and salah times'],
+    content: ['Content editor', 'Notices, ayah/hadith, adhkar and urgent messages'],
+    operator: ['TV operator', 'Link TVs and use TV controls'],
+    custom: ['Custom', 'Choose the permissions below']
+  };
+  const ROLE_PERMS = { manager: ['iqamah', 'content', 'tvs', 'commands', 'settings'], imam: ['iqamah', 'content'], iqamah: ['iqamah'], content: ['content'], operator: ['tvs', 'commands'] };
+  const PERM_INFO = {
+    iqamah: ['Iqamah & Jumu’ah', 'Iqamah, Jumu’ah and salah-screen times'],
+    content: ['Notices & content', 'Announcements, ayah/hadith, adhkar, urgent messages'],
+    tvs: ['TVs & sections', 'Link TVs, rename, sections'],
+    commands: ['TV controls', 'Full screen, tests, reload, screen off, clock'],
+    settings: ['Settings', 'Name, location, calculation, look, features, adhan'],
+    admins: ['Manage team', 'Add / remove admins, contact details']
+  };
+  /* what each heading on the panel needs */
+  const NEED = { 'Quick mode': 'settings', 'Urgent message on TV': 'content', 'Link a TV': 'tvs', 'My TVs & sections': 'tvs', 'TV controls': 'commands', 'Clock': 'commands',
+    'Masjid / home': 'settings', 'Contact details': 'admins', 'Language & clock': 'settings', 'Location': 'settings', 'Calculation': 'settings', 'Look': 'settings', 'Adhan sound': 'settings', 'Share & screens': 'settings', 'Backup': 'settings', 'Team & permissions': 'admins' };
+  const TAB_NEED = { iqamah: 'iqamah', notices: 'content', adhkar: 'content', features: 'settings' };
+  const ACT_EXTRA = {};
+  const credFor = (aid, pin) => (aid && aid !== 'owner' ? aid + ':' + pin : pin);
 
   /* ================= login ================= */
   // A browser that is linked as a TV is a shared screen: never keep a PIN there.
@@ -220,7 +268,9 @@ textarea{min-height:84px;resize:vertical}
     if (id !== ID) { ID = id; store = M.createAdminStore(ID); try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ } }
     try {
       const j = await store.login(pin);
-      savePin(ID, pin);
+      ME = j.me || { id: 'owner', name: 'Owner', role: 'owner', perms: ALL_PERMS.slice() };
+      const cred = credFor(ME.id, String(pin).includes(':') ? String(pin).split(':')[1] : pin);
+      store.setPin(cred); savePin(ID, cred);
       MODE = 'server'; NAME = j.name; MEDIA = j.media || {}; viewers = j.viewers || 0; pinIsDefault = j.pinIsDefault; OWNER = j.owner || {};
       try { localStorage.setItem('miqat:screen', ID); } catch (e) { /* */ }
       S = M.withDefaults(j.settings);
@@ -255,11 +305,11 @@ textarea{min-height:84px;resize:vertical}
     if (mob.replace(/\D/g, '').length < 8) { $('lgErr').textContent = 'Enter the mobile number you registered with.'; return; }
     try {
       const j = await M.post('/api/find', { mobile: mob, pin: p });
-      if (j.screens.length === 1) { $('lgId').value = j.screens[0].id; return doLogin(p); }
-      $('lgPick').innerHTML = '<div class="muted" style="margin:14px 0 8px">Choose a screen:</div>' + j.screens.map((x) => `<button class="btn wide" style="margin-bottom:8px;justify-content:space-between" data-pick="${esc(x.id)}"><span>${x.type === 'home' ? '🏠' : '🕌'} ${esc(x.name)}</span><small class="muted">${esc(x.city || '')}${x.disabled ? ' · disabled' : x.pending ? ' · pending' : ''}</small></button>`).join('');
+      if (j.screens.length === 1) { $('lgId').value = j.screens[0].id; return doLogin(credFor(j.screens[0].admin, p)); }
+      $('lgPick').innerHTML = '<div class="muted" style="margin:14px 0 8px">Choose a screen:</div>' + j.screens.map((x) => `<button class="btn wide" style="margin-bottom:8px;justify-content:space-between" data-pick="${esc(x.id)}" data-admin="${esc(x.admin || 'owner')}"><span>${x.type === 'home' ? '🏠' : '🕌'} ${esc(x.name)}</span><small class="muted">${x.role && x.role !== 'owner' ? esc((ROLE_INFO[x.role] || ROLE_INFO.custom)[0]) + ' · ' : ''}${esc(x.city || '')}${x.disabled ? ' · disabled' : x.pending ? ' · pending' : ''}</small></button>`).join('');
     } catch (e) { $('lgErr').textContent = e.status ? e.message : 'Cannot reach the server. Check your internet.'; if (!e.status) offerOffline(); }
   };
-  $('lgPick').onclick = (e) => { const b = e.target.closest('[data-pick]'); if (!b) return; $('lgId').value = b.dataset.pick; doLogin($('lgPin').value.trim()); };
+  $('lgPick').onclick = (e) => { const b = e.target.closest('[data-pick]'); if (!b) return; $('lgId').value = b.dataset.pick; doLogin(credFor(b.dataset.admin, $('lgPin').value.trim())); };
   (function () {
     let iso = 'IN';
     try { const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; iso = { 'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA', 'Asia/Qatar': 'QA', 'Asia/Muscat': 'OM', 'Asia/Kuwait': 'KW', 'Asia/Bahrain': 'BH', 'Asia/Karachi': 'PK', 'Asia/Dhaka': 'BD', 'Asia/Colombo': 'LK', 'Europe/London': 'GB', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Singapore': 'SG' }[tz] || 'IN'; } catch (e) { /* */ }
@@ -292,6 +342,7 @@ textarea{min-height:84px;resize:vertical}
       setSync(`Saved · ${r.viewers} screen${r.viewers === 1 ? '' : 's'} live`, 'ok');
     } catch (e) {
       if (e.status === 401) { showLogin('Session expired — enter PIN again.'); return; }
+      if (e.status === 403) { pending = false; setSync('Not allowed', 'bad'); toast(e.message); return; }
       MODE = 'server-offline'; setSync('Offline — will sync', 'bad'); scheduleRetry();
     }
   }
@@ -339,7 +390,7 @@ textarea{min-height:84px;resize:vertical}
     if (t.dataset.tab) { TAB = t.dataset.tab; document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === t)); render(); scrollTo(0, 0); return; }
     if (t.dataset.step) { const p = t.dataset.step; set(p, (+get(p) || 0) + (+t.dataset.d)); const inp = t.parentNode.querySelector('input'); if (inp) inp.value = get(p); return; }
     if (t.dataset.seg) { set(t.dataset.seg, t.dataset.v); render(); return; }
-    const a = t.dataset.act; if (ACT[a]) ACT[a](t);
+    const a = t.dataset.act; const fn = ACT[a] || ACT_EXTRA[a]; if (fn) fn(t);
   });
 
   /* ================= live bits ================= */
@@ -372,11 +423,19 @@ textarea{min-height:84px;resize:vertical}
 
   /* ================= views ================= */
   function render() {
+    // tabs this admin may use
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('hide', !!TAB_NEED[b.dataset.tab] && !can(TAB_NEED[b.dataset.tab])));
+    if (TAB_NEED[TAB] && !can(TAB_NEED[TAB])) { TAB = 'home'; document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === 'home')); }
     const v = VIEWS[TAB] || VIEWS.home;
-    $('main').innerHTML = v();
+    $('main').innerHTML = (MODE === 'server' && ME.role !== 'owner' ? `<div class="banner info whoami">Logged in as <b>${esc(ME.name)}</b> · ${esc((ROLE_INFO[ME.role] || ROLE_INFO.custom)[0])}<br><small>${ME.perms.map((p) => esc(PERM_INFO[p][0])).join(' · ')}</small></div>` : '') + v();
+    // hide the parts this admin is not allowed to use
+    $('main').querySelectorAll('h2').forEach((h) => {
+      const need = NEED[h.textContent.trim()];
+      if (need && !can(need)) { h.classList.add('hide'); const n = h.nextElementSibling; if (n && n.tagName !== 'H2') n.classList.add('hide'); }
+    });
     refreshLive();
-    if (TAB === 'home') { renderTimetable(); loadTvs(); }
-    if (TAB === 'settings') { renderShare(); mountPlaces(); }
+    if (TAB === 'home') { renderTimetable(); if (can('tvs')) loadTvs(); }
+    if (TAB === 'settings') { if (can('settings')) { renderShare(); mountPlaces(); } if (can('admins')) renderTeam(); }
   }
 
   const VIEWS = {};
@@ -609,9 +668,14 @@ textarea{min-height:84px;resize:vertical}
       ${tog('features.announcements', 'Announcements ticker')}
       ${tog('features.ayah', 'Ayah / hadith strip')}
       ${tog('features.sunnahTimes', 'Midnight & last third of night', 'Small chips at the top (for Tahajjud)')}
-      ${tog('features.qr', 'QR code to control from phone', 'Hidden automatically when offline')}
       ${tog('features.tomorrowAfterIsha', 'Show tomorrow after Isha', 'Switches the table to tomorrow’s times at night')}
       ${sel('features.ramadan', 'Ramadan mode (Suhoor / Iftar / Taraweeh)', [['auto', 'Automatic in Ramadan'], ['on', 'Always on'], ['off', 'Off']])}
+    </div>
+    <h2>Ramadan countdown</h2>
+    <div class="card glass">
+      ${sel('features.ramadanCountdown', 'Countdown to Ramadan', [['auto', 'Show in the last days before Ramadan'], ['always', 'Show all year'], ['off', 'Off']], 1)}
+      ${S.features.ramadanCountdown === 'auto' ? num('ramadan.countdownDays', 'Start showing how many days before', 1, 1, 360) : ''}
+      <div class="muted" style="padding:4px 0 14px">${(() => { try { const p = M.zoned(M.now(S), S.general.timezone), off = +S.calc.hijriOffset || 0; for (let i = 1; i <= 400; i++) { const d = M.addDays(p, i), h = M.hijri(d, off); if (h.m === 9 && h.d === 1) return `1 Ramadan ${h.y} is expected on <b>${new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(d.y, d.m - 1, d.d, 12)))}</b>, in <b>${i}</b> days. Shown on the TV under the Hijri date and in the ayah strip. If your moon-sighting date differs, change <b>Hijri date adjust</b> in Settings › Calculation.`; } } catch (e) { /* */ } return ''; })()}</div>
     </div>
     <h2>Adhan & salah</h2>
     <div class="card glass">
@@ -705,6 +769,9 @@ textarea{min-height:84px;resize:vertical}
       <div class="two"><input type="password" id="newPin" inputmode="numeric" placeholder="New PIN (4–12 digits)" maxlength="12"><button class="btn" data-act="pin" ${MODE !== 'server' ? 'disabled' : ''}>Change PIN</button></div>
       <button class="btn wide" style="margin-top:10px" data-act="logout">Log out of this phone</button>
     </div>
+${MODE === 'server' ? `
+    <h2>Team & permissions</h2>
+    <div class="card pad glass" id="teamBox"><div class="muted">Loading…</div></div>` : ''}
 
     ${M.inApp() ? (() => { const ai = M.appInfo() || {}; return `<h2>App</h2>
     <div class="card pad glass">
@@ -737,6 +804,92 @@ textarea{min-height:84px;resize:vertical}
   }
 
   /* ================= share / timetable ================= */
+  /* ================= team: admins, roles & permissions ================= */
+  let TEAM = null, EDIT = null; // EDIT: null | 'new' | admin id
+  const roleName = (r) => (ROLE_INFO[r] || ROLE_INFO.custom)[0];
+  const ago = (t) => { if (!t) return 'never'; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+  async function renderTeam(reload) {
+    const box = $('teamBox'); if (!box) return;
+    if (!TEAM || reload) { try { TEAM = await store.admins(); } catch (e) { box.innerHTML = `<div class="muted">${esc(e.message)}</div>`; return; } }
+    const list = TEAM.admins || [];
+    const owner = `<div class="adm"><div class="ai">👑</div><div class="am"><b>${esc(OWNER.contact || 'Owner')}${ME.id === 'owner' ? ' (you)' : ''}</b><small>Owner · logs in with the screen PIN${OWNER.mobile ? ' · ' + esc(OWNER.mobile) : ''}</small></div></div>`;
+    const rows = list.map((a) => `<div class="adm${a.disabled ? ' off' : ''}">
+        <div class="ai">${esc((a.name || '?').trim().charAt(0).toUpperCase())}</div>
+        <div class="am"><b>${esc(a.name)}${a.id === ME.id ? ' (you)' : ''}</b><small>${esc(roleName(a.role))}${a.mobile ? ' · ' + esc(a.mobile) : ''} · last login ${ago(a.lastLogin)}${a.disabled ? ' · <span style="color:var(--bad)">paused</span>' : ''}</small>
+          <small class="perms">${a.perms.map((p) => esc(PERM_INFO[p] ? PERM_INFO[p][0] : p)).join(' · ')}</small></div>
+        ${a.id === ME.id ? '' : `<div class="aa"><button class="btn sm" data-act="admEdit" data-id="${a.id}">Edit</button></div>`}
+      </div>`).join('');
+    box.innerHTML = `
+      <div class="muted" style="margin-bottom:12px">Give other people their own login with only the access they need — for example the imam can change iqamah times, a volunteer can post notices. Each person logs in with <b>their own mobile number + PIN</b>; you can pause or remove them any time.</div>
+      ${owner}${rows}
+      ${EDIT ? adminForm() : `<button class="btn pri wide" style="margin-top:12px" data-act="admNew">＋ Add an admin</button>`}
+      ${(TEAM.log || []).length ? `<div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--line)"><b>Recent activity</b>
+        <div class="log">${TEAM.log.slice(0, 15).map((l) => `<div><span>${esc(l.by)}</span> ${esc(l.what)}<small>${ago(l.at)}</small></div>`).join('')}</div></div>` : ''}`;
+    if (EDIT) mountAdminForm();
+  }
+  function adminForm() {
+    const a = EDIT === 'new' ? { role: 'imam', perms: ROLE_PERMS.imam } : (TEAM.admins || []).find((x) => x.id === EDIT) || {};
+    const iso = M.phoneSplit(a.mobile, S.location.countryCode || 'IN')[0];
+    return `<div class="admform glass">
+      <b style="font-size:16px">${EDIT === 'new' ? 'New admin' : 'Edit ' + esc(a.name)}</b>
+      <label class="field"><span>Name</span><input type="text" id="afName" maxlength="60" value="${esc(a.name || '')}" placeholder="e.g. Usthad Ashraf"></label>
+      <div class="field"><span>Mobile number (used to log in)</span><div id="afPhone">${M.phoneHtml(iso, M.phoneSplit(a.mobile, S.location.countryCode || 'IN')[1])}</div></div>
+      <label class="field"><span>Role</span><select id="afRole">${Object.keys(ROLE_INFO).filter((r) => r !== 'owner').map((r) => `<option value="${r}" ${a.role === r ? 'selected' : ''}>${ROLE_INFO[r][0]} — ${ROLE_INFO[r][1]}</option>`).join('')}</select></label>
+      <div class="permgrid" id="afPerms">${ALL_PERMS.filter((p) => p !== 'admins' || ME.id === 'owner' || (a.perms || []).includes('admins')).map((p) => `<label class="pchk"><input type="checkbox" value="${p}" ${(a.perms || []).includes(p) ? 'checked' : ''}><span><b>${PERM_INFO[p][0]}</b><small>${PERM_INFO[p][1]}</small></span></label>`).join('')}</div>
+      <label class="field"><span>${EDIT === 'new' ? 'PIN for this person (4–12 digits)' : 'New PIN (leave empty to keep)'}</span><div class="two" style="grid-template-columns:1fr auto"><input type="tel" id="afPin" inputmode="numeric" maxlength="12" placeholder="${EDIT === 'new' ? 'e.g. 4821' : '••••'}"><button class="btn sm" data-act="admGen">🎲 Make one</button></div></label>
+      <div class="grid2" style="margin-top:12px"><button class="btn" data-act="admCancel">Cancel</button><button class="btn pri" data-act="admSave">${EDIT === 'new' ? 'Add admin' : 'Save'}</button></div>
+      ${EDIT !== 'new' ? `<div class="grid2" style="margin-top:10px"><button class="btn" data-act="admPause">${a.disabled ? '▶ Resume access' : '⏸ Pause access'}</button><button class="btn bad" data-act="admDel">Remove</button></div>` : ''}
+      <div id="afOut"></div>
+    </div>`;
+  }
+  function mountAdminForm() {
+    const role = $('afRole'), box = $('afPerms');
+    role.onchange = () => { const ps = ROLE_PERMS[role.value]; if (ps) box.querySelectorAll('input').forEach((i) => { i.checked = ps.includes(i.value); }); };
+    box.onchange = () => {
+      const on = [...box.querySelectorAll('input:checked')].map((i) => i.value).sort().join();
+      const match = Object.keys(ROLE_PERMS).find((r) => ROLE_PERMS[r].slice().sort().join() === on);
+      role.value = match || 'custom';
+    };
+    $('afName').focus();
+  }
+  function shareLogin(name, mobile, pin) {
+    const url = location.origin + '/admin';
+    const msg = `Assalamu alaikum ${name},\nYou are now an admin of ${S.general.masjidName || NAME} on Meeqat.\n\nOpen: ${url}\nMobile: ${mobile}\nPIN: ${pin}\n\nYou can also install the Meeqat Admin app: ${location.origin}/admin-app`;
+    return `<div class="banner info" style="margin-top:12px">Send these login details to <b>${esc(name)}</b>:<div class="mono" style="white-space:pre-wrap;margin:8px 0">${esc(msg)}</div>
+      <div class="grid2"><a class="btn" href="https://wa.me/${esc(String(mobile).replace(/\D/g, ''))}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 WhatsApp</a><button class="btn" data-act="admCopy" data-t="${esc(msg)}">📋 Copy</button></div></div>`;
+  }
+  Object.assign(ACT_EXTRA, {
+    admNew() { EDIT = 'new'; renderTeam(); },
+    admEdit(t) { EDIT = t.dataset.id; renderTeam(); },
+    admCancel() { EDIT = null; renderTeam(); },
+    admGen() { $('afPin').value = String(1000 + Math.floor(Math.random() * 9000)); },
+    admCopy(t) { try { navigator.clipboard.writeText(t.dataset.t); toast('Copied'); } catch (e) { toast('Copy failed'); } },
+    async admSave() {
+      const name = $('afName').value.trim(), mobile = M.phoneRead($('afPhone')), pin = $('afPin').value.trim();
+      const perms = [...$('afPerms').querySelectorAll('input:checked')].map((i) => i.value), role = $('afRole').value;
+      if (!name) return toast('Enter a name');
+      if (mobile.replace(/\D/g, '').length < 8) return toast('Enter their mobile number — they log in with it');
+      if (!perms.length) return toast('Choose at least one permission');
+      if ((EDIT === 'new' || pin) && !/^\d{4,12}$/.test(pin)) return toast('PIN must be 4–12 digits');
+      try {
+        const data = { name, mobile, role, perms };
+        if (pin) data.pin = pin;
+        if (EDIT === 'new') await store.addAdmin(data); else await store.updateAdmin(EDIT, data);
+        EDIT = null; await renderTeam(true);
+        toast('Saved ✓');
+        if (pin) $('teamBox').insertAdjacentHTML('beforeend', shareLogin(name, mobile, pin));
+      } catch (e) { toast(e.message); }
+    },
+    async admPause() {
+      const a = (TEAM.admins || []).find((x) => x.id === EDIT); if (!a) return;
+      try { await store.updateAdmin(EDIT, { disabled: !a.disabled }); EDIT = null; renderTeam(true); toast(a.disabled ? 'Access resumed' : 'Access paused'); } catch (e) { toast(e.message); }
+    },
+    async admDel() {
+      const a = (TEAM.admins || []).find((x) => x.id === EDIT); if (!a || !confirm(`Remove ${a.name}? They will no longer be able to log in.`)) return;
+      try { await store.removeAdmin(EDIT); EDIT = null; renderTeam(true); toast('Removed'); } catch (e) { toast(e.message); }
+    }
+  });
+
   async function renderShare() {
     const box = $('shareBox'); if (!box) return;
     if (MODE === 'local' || !M.serverAvailable()) { box.innerHTML = `<div class="muted">Sharing needs the Meeqat server. Run it on a PC/Raspberry Pi in the masjid (offline) or on a cloud host (online).</div>`; return; }
@@ -869,7 +1022,7 @@ textarea{min-height:84px;resize:vertical}
     async rmMedia(t) { if (!confirm('Remove this audio?')) return; try { await store.removeMedia(t.dataset.n); MEDIA[t.dataset.n] = null; render(); } catch (e) { toast(e.message); } },
     async pin() {
       const p = $('newPin').value.trim(); if (!/^\d{4,12}$/.test(p)) return toast('PIN must be 4–12 digits');
-      try { await store.changePin(p); store.setPin(p); savePin(ID, p); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
+      try { await store.changePin(p); const c = credFor(ME.id, p); store.setPin(c); savePin(ID, c); pinIsDefault = false; $('newPin').value = ''; toast('PIN changed'); render(); } catch (e) { toast(e.message); }
     },
     logout() { forgetPin(ID); try { localStorage.removeItem('miqat:screen'); } catch (e) { /* */ } ID = ''; $('lgPin').value = ''; showLogin(); },
     export() {

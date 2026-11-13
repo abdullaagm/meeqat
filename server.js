@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const VERSION = '1.7.8';
+const VERSION = '1.8.0';
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
@@ -178,10 +178,87 @@ async function readJson(req, limit) {
   const b = await readBody(req, limit || 64 * 1024);
   try { return JSON.parse(b.toString('utf8') || '{}'); } catch (e) { throw Object.assign(new Error('Bad JSON'), { code: 400 }); }
 }
-function auth(req, res, scr) {
+/* ---------- admins, roles & permissions ----------
+ * The screen's own PIN is the OWNER (all rights, cannot be removed).
+ * Extra admins live in scr.admins = { <aid>: { name, mobile, role, perms[], pin, added, by, lastLogin } }.
+ * A logged-in admin sends X-Pin: "<aid>:<pin>"; the owner sends just "<pin>".
+ */
+const PERMS = ['iqamah', 'content', 'tvs', 'commands', 'settings', 'admins'];
+const ROLES = {
+  manager: ['iqamah', 'content', 'tvs', 'commands', 'settings'],
+  iqamah: ['iqamah'],
+  content: ['content'],
+  operator: ['tvs', 'commands'],
+  imam: ['iqamah', 'content']
+};
+const AID_RE = /^[a-z0-9]{8,16}$/;
+function cleanPerms(role, perms) {
+  if (ROLES[role]) return ROLES[role].slice();
+  return PERMS.filter((x) => Array.isArray(perms) && perms.includes(x));
+}
+function ownerName(scr) { return (scr.owner && scr.owner.contact) || 'Owner'; }
+/** Who is this credential? Returns { id, name, role, perms } or null. */
+function whoIs(scr, cred) {
+  cred = String(cred || '');
+  const m = /^([a-z0-9]{8,16}):(\d{4,12})$/.exec(cred);
+  if (m) {
+    const a = (scr.admins || {})[m[1]];
+    if (a && !a.disabled && checkPin(m[2], a.pin)) return { id: m[1], name: a.name, role: a.role, perms: a.perms || [] };
+    return null;
+  }
+  if (checkPin(cred, scr.pin)) return { id: 'owner', name: ownerName(scr), role: 'owner', perms: PERMS.slice() };
+  return null;
+}
+/** Log in with only a PIN (screen-ID mode): owner first, then each admin. */
+function whoByPin(scr, pin) {
+  if (/^([a-z0-9]{8,16}):/.test(String(pin || ''))) return whoIs(scr, pin);
+  const o = whoIs(scr, pin); if (o) return o;
+  for (const [aid, a] of Object.entries(scr.admins || {})) if (!a.disabled && checkPin(pin, a.pin)) return { id: aid, name: a.name, role: a.role, perms: a.perms || [] };
+  return null;
+}
+function auth(req, res, scr, perm) {
   if (locked(req)) { json(res, 429, { error: 'Too many wrong PINs. Try again in 5 minutes.' }); return false; }
-  if (!checkPin(req.headers['x-pin'], scr.pin)) { noteFail(req); json(res, 401, { error: 'Wrong PIN' }); return false; }
-  noteOk(req); return true;
+  const who = whoIs(scr, req.headers['x-pin']);
+  if (!who) { noteFail(req); json(res, 401, { error: 'Wrong PIN' }); return false; }
+  noteOk(req);
+  if (perm && !who.perms.includes(perm)) { json(res, 403, { error: 'You do not have permission for this. Ask the owner of this screen.', perm }); return false; }
+  return who;
+}
+function adminList(scr) {
+  return Object.entries(scr.admins || {}).map(([id, a]) => ({ id, name: a.name, mobile: a.mobile, role: a.role, perms: a.perms || [], added: a.added, by: a.by, lastLogin: a.lastLogin || null, disabled: !!a.disabled }))
+    .sort((a, b) => (a.added || 0) - (b.added || 0));
+}
+function addLog(scr, who, what) {
+  scr.log = (scr.log || []).slice(-59);
+  scr.log.push({ at: Date.now(), by: who ? who.name : '?', aid: who ? who.id : '', what: String(what).slice(0, 140) });
+}
+/* which permission owns which part of the settings */
+const KEY_PERM = { iqamah: 'iqamah', jumuah: 'iqamah', salah: 'iqamah', announcements: 'content', ayahs: 'content', adhkar: 'content', sections: 'tvs', clock: 'commands' };
+const FEATURE_PERM = { iqamah: 'iqamah', jumuah: 'iqamah', jumuahDaily: 'iqamah', iqamahCountdown: 'iqamah', salahScreen: 'iqamah', announcements: 'content', ayah: 'content', adhkar: 'content' };
+const LIVE_PERM = { urgent: 'content', urgentUntil: 'content', urgentSections: 'content', blank: 'commands' };
+const AREA_NAME = { iqamah: 'iqamah times', content: 'notices / ayah / adhkar', tvs: 'sections', commands: 'TV controls', settings: 'settings' };
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/** Keep the parts of the settings this admin may not change. Returns { settings, changed:Set } */
+function mergeSettings(old, neu, perms) {
+  old = old || {}; const out = Object.assign({}, neu), changed = new Set();
+  const can = (p) => perms.includes(p);
+  for (const k of new Set([...Object.keys(old), ...Object.keys(neu)])) {
+    const sub = k === 'features' ? FEATURE_PERM : k === 'live' ? LIVE_PERM : null;
+    if (sub) {
+      const o = Object.assign({}, old[k] || {}), n = Object.assign({}, neu[k] || {}), r = {};
+      for (const f of new Set([...Object.keys(o), ...Object.keys(n)])) {
+        const p = sub[f] || 'settings';
+        const v = can(p) ? n[f] : o[f];
+        if (v !== undefined) r[f] = v;
+        if (can(p) && !same(o[f], n[f])) changed.add(p);
+      }
+      out[k] = r; continue;
+    }
+    const p = KEY_PERM[k] || 'settings';
+    if (!can(p)) { if (old[k] === undefined) delete out[k]; else out[k] = old[k]; }
+    else if (!same(old[k], neu[k])) changed.add(p);
+  }
+  return { settings: out, changed };
 }
 function lanAddresses() {
   const out = [];
@@ -346,10 +423,14 @@ async function handle(req, res) {
     const b = await readJson(req);
     const t = tail(b.mobile);
     if (t.length < 8 || !validPin(b.pin)) { noteFail(req); return json(res, 400, { error: 'Enter your mobile number and PIN.' }); }
-    const found = allScreens().filter((x) => x.owner && tail(x.owner.mobile) === t && checkPin(b.pin, x.pin));
+    const found = [];
+    for (const x of allScreens()) {
+      if (x.owner && tail(x.owner.mobile) === t && checkPin(b.pin, x.pin)) { found.push({ x, admin: 'owner', role: 'owner' }); continue; }
+      for (const [aid, a] of Object.entries(x.admins || {})) if (!a.disabled && tail(a.mobile) === t && checkPin(b.pin, a.pin)) { found.push({ x, admin: aid, role: a.role }); break; }
+    }
     if (!found.length) { noteFail(req); return json(res, 401, { error: 'No screen found for this mobile number and PIN.' + (SUPPORT ? ' Help: ' + SUPPORT : '') }); }
     noteOk(req);
-    return json(res, 200, { ok: true, screens: found.map((x) => ({ id: x.id, name: x.name, city: x.owner.city, type: x.owner.type, disabled: !!x.disabled, pending: !!x.pending })) });
+    return json(res, 200, { ok: true, screens: found.map(({ x, admin, role }) => ({ id: x.id, name: x.name, city: (x.owner || {}).city, type: (x.owner || {}).type, admin, role, disabled: !!x.disabled, pending: !!x.pending })) });
   }
 
   /* ----- super admin ----- */
@@ -416,7 +497,7 @@ async function handle(req, res) {
           city: [loc.area, loc.city].filter(Boolean).join(', ') || (x.owner && x.owner.city) || '',
           region: [loc.region, loc.country].filter(Boolean).join(', '), contact: x.owner ? x.owner.contact : '', mobile: x.owner ? x.owner.mobile : '', email: x.owner ? x.owner.email : '',
           created: x.created, updated: x.updated, rev: x.rev, lastSeen: Math.max(seen.get(x.id) || 0, x.lastSeen || 0) || null,
-          live: (clients.get(x.id) || new Set()).size, disabled: !!x.disabled, pending: !!x.pending, pinIsDefault: !!x.pinIsDefault,
+          live: (clients.get(x.id) || new Set()).size, admins: Object.keys(x.admins || {}).length, disabled: !!x.disabled, pending: !!x.pending, pinIsDefault: !!x.pinIsDefault,
           lang: gen.lang || 'en', lat: loc.lat, lng: loc.lng
         };
       }).sort((a, b) => (b.created || 0) - (a.created || 0));
@@ -531,18 +612,34 @@ async function handle(req, res) {
     if (action === 'login' && req.method === 'POST') {
       if (locked(req)) return json(res, 429, { error: 'Too many wrong PINs. Try again in 5 minutes.' });
       const b = await readJson(req);
-      if (!checkPin(b.pin, scr.pin)) { noteFail(req); return json(res, 401, { error: 'Wrong PIN' }); }
+      const who = whoByPin(scr, b.pin);
+      if (!who) { noteFail(req); return json(res, 401, { error: 'Wrong PIN' }); }
       noteOk(req);
-      return json(res, 200, Object.assign({ ok: true, viewers: (clients.get(id) || new Set()).size }, publicScreen(id, scr)));
+      if (who.id !== 'owner') { const a = scr.admins[who.id]; if (!a.lastLogin || Date.now() - a.lastLogin > 3600000) { a.lastLogin = Date.now(); save(id, scr); } }
+      const out = Object.assign({ ok: true, viewers: (clients.get(id) || new Set()).size, me: who }, publicScreen(id, scr));
+      if (who.id !== 'owner') out.pinIsDefault = false;
+      return json(res, 200, out);
     }
 
     if (action === 'settings' && req.method === 'PUT') {
-      if (!auth(req, res, scr)) return;
+      const who = auth(req, res, scr); if (!who) return;
       const b = await readJson(req, MAX_SETTINGS);
       if (!b || typeof b.settings !== 'object') return json(res, 400, { error: 'Missing settings' });
-      scr.settings = b.settings;
-      if (b.name) scr.name = String(b.name).slice(0, 80);
-      if (b.owner && typeof b.owner === 'object') scr.owner = cleanOwner(b.owner, scr.owner);
+      const mg = mergeSettings(scr.settings, b.settings, who.perms);
+      scr.settings = mg.settings;
+      if (b.name && who.perms.includes('settings') && b.name !== scr.name) { scr.name = String(b.name).slice(0, 80); mg.changed.add('settings'); }
+      if (b.owner && typeof b.owner === 'object' && who.perms.includes('admins')) {
+        const o2 = cleanOwner(b.owner, scr.owner); if (!same(o2, scr.owner)) { scr.owner = o2; mg.changed.add('admins'); }
+      }
+      if (mg.changed.size) {
+        const last = (scr.log || [])[scr.log ? scr.log.length - 1 : 0];
+        const what = 'Changed ' + [...mg.changed].map((x) => AREA_NAME[x] || 'contact details').join(', ');
+        // merge rapid autosaves by the same admin into one entry
+        if (last && last.aid === who.id && Date.now() - last.at < 10 * 60000 && /^Changed /.test(last.what)) {
+          const parts = new Set(last.what.slice(8).split(', ').concat(what.slice(8).split(', ')));
+          last.what = 'Changed ' + [...parts].join(', '); last.at = Date.now();
+        } else addLog(scr, who, what);
+      }
       scr.rev = (scr.rev || 0) + 1; scr.updated = Date.now();
       save(id, scr);
       const viewers = broadcast(id, 'settings', { rev: scr.rev });
@@ -550,7 +647,7 @@ async function handle(req, res) {
     }
 
     if (action === 'link' && req.method === 'POST') {
-      if (!auth(req, res, scr)) return;
+      const who = auth(req, res, scr, 'tvs'); if (!who) return;
       const b = await readJson(req);
       const pr = pairs.get(String(b.code || '').replace(/\D/g, ''));
       if (!pr || pr.exp < Date.now()) return json(res, 404, { error: 'Code not found or expired. Check the code on the TV.' });
@@ -564,15 +661,16 @@ async function handle(req, res) {
           save(id, scr);
         }
       }
+      addLog(scr, who, 'Linked a TV'); save(id, scr);
       console.log(`  ~ TV linked to "${scr.name}" (${id})`);
       return json(res, 200, { ok: true });
     }
 
     if (action === 'tvs') {
-      if (!auth(req, res, scr)) return;
+      const who = auth(req, res, scr, req.method === 'GET' ? null : 'tvs'); if (!who) return;
       if (req.method === 'GET' && !sub) return json(res, 200, { ok: true, tvs: tvList(id, scr) });
       if (sub && scr.tvs && scr.tvs[sub]) {
-        if (req.method === 'DELETE') { delete scr.tvs[sub]; save(id, scr); return json(res, 200, { ok: true }); }
+        if (req.method === 'DELETE') { addLog(scr, who, 'Removed TV “' + scr.tvs[sub].name + '”'); delete scr.tvs[sub]; save(id, scr); return json(res, 200, { ok: true }); }
         if (req.method === 'PUT') {
           const b = await readJson(req);
           const t = scr.tvs[sub];
@@ -587,15 +685,63 @@ async function handle(req, res) {
     }
 
     if (action === 'pin' && req.method === 'POST') {
-      if (!auth(req, res, scr)) return;
+      const who = auth(req, res, scr); if (!who) return;
       const b = await readJson(req);
       if (!validPin(b.newPin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' });
-      scr.pin = hashPin(b.newPin); scr.pinIsDefault = false; delete scr.firstPin; save(id, scr);
+      if (who.id === 'owner') { scr.pin = hashPin(b.newPin); scr.pinIsDefault = false; delete scr.firstPin; }
+      else scr.admins[who.id].pin = hashPin(b.newPin);
+      addLog(scr, who, 'Changed own PIN'); save(id, scr);
       return json(res, 200, { ok: true });
     }
 
+    /* ----- team: extra admins with roles (owner, or anyone with the "admins" permission) ----- */
+    if (action === 'admins') {
+      const who = auth(req, res, scr, 'admins'); if (!who) return;
+      if (req.method === 'GET' && !sub) return json(res, 200, { ok: true, admins: adminList(scr), log: (scr.log || []).slice(-40).reverse(), roles: ROLES, perms: PERMS });
+      if (req.method === 'POST' && !sub) {
+        const b = await readJson(req);
+        const name = String(b.name || '').trim().slice(0, 60);
+        const mobile = String(b.mobile || '').replace(/[^\d+ -]/g, '').slice(0, 20);
+        if (!name) return json(res, 400, { error: 'Enter a name.' });
+        if (!validPin(b.pin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' });
+        scr.admins = scr.admins || {};
+        if (Object.keys(scr.admins).length >= 20) return json(res, 400, { error: 'Up to 20 admins per screen.' });
+        if (mobile && tail(mobile).length >= 8 && Object.values(scr.admins).some((a) => tail(a.mobile) === tail(mobile))) return json(res, 400, { error: 'An admin with this mobile number already exists.' });
+        const role = ROLES[b.role] ? b.role : 'custom';
+        const perms = cleanPerms(role, b.perms);
+        if (!perms.length) return json(res, 400, { error: 'Choose at least one permission.' });
+        if (perms.includes('admins') && who.id !== 'owner') return json(res, 403, { error: 'Only the owner can give the “Manage admins” permission.' });
+        let aid; do { aid = crypto.randomBytes(5).toString('hex'); } while (scr.admins[aid]);
+        scr.admins[aid] = { name, mobile, role, perms, pin: hashPin(b.pin), added: Date.now(), by: who.name };
+        addLog(scr, who, `Added admin “${name}” (${role})`); save(id, scr);
+        return json(res, 201, { ok: true, id: aid });
+      }
+      const a = sub && (scr.admins || {})[sub];
+      if (!a) return json(res, 404, { error: 'Admin not found' });
+      if (sub === who.id && req.method !== 'GET') return json(res, 400, { error: 'You cannot change your own role here. Ask the owner.' });
+      if (req.method === 'DELETE') { delete scr.admins[sub]; addLog(scr, who, `Removed admin “${a.name}”`); save(id, scr); return json(res, 200, { ok: true }); }
+      if (req.method === 'PUT') {
+        const b = await readJson(req);
+        if (b.name !== undefined) a.name = String(b.name).trim().slice(0, 60) || a.name;
+        if (b.mobile !== undefined) a.mobile = String(b.mobile || '').replace(/[^\d+ -]/g, '').slice(0, 20);
+        if (b.role !== undefined || b.perms !== undefined) {
+          const role = ROLES[b.role] ? b.role : 'custom';
+          const perms = cleanPerms(role, b.perms !== undefined ? b.perms : a.perms);
+          if (!perms.length) return json(res, 400, { error: 'Choose at least one permission.' });
+          if (perms.includes('admins') && !a.perms.includes('admins') && who.id !== 'owner') return json(res, 403, { error: 'Only the owner can give the “Manage admins” permission.' });
+          a.role = role; a.perms = perms;
+        }
+        if (b.disabled !== undefined) a.disabled = !!b.disabled;
+        if (b.pin !== undefined) { if (!validPin(b.pin)) return json(res, 400, { error: 'PIN must be 4–12 digits.' }); a.pin = hashPin(b.pin); }
+        addLog(scr, who, `Updated admin “${a.name}”` + (b.pin !== undefined ? ' (new PIN)' : b.disabled !== undefined ? (a.disabled ? ' (paused)' : ' (active)') : ''));
+        save(id, scr);
+        return json(res, 200, { ok: true });
+      }
+      return json(res, 405, { error: 'Not allowed' });
+    }
+
     if (action === 'command' && req.method === 'POST') {
-      if (!auth(req, res, scr)) return;
+      if (!auth(req, res, scr, 'commands')) return;
       const b = await readJson(req);
       const allowed = ['reload', 'test-adhan', 'test-iqamah', 'test-salah', 'test-adhkar', 'identify', 'stop', 'fullscreen', 'exit-fullscreen'];
       if (!allowed.includes(b.type)) return json(res, 400, { error: 'Unknown command' });
